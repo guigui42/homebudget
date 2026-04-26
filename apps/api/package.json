@@ -1,0 +1,25 @@
+{
+  "name": "@homebudget/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/main.ts",
+    "build": "bun build src/main.ts --outdir dist --target bun",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@homebudget/shared": "workspace:*",
+    "effect": "^3",
+    "@effect/platform": "latest",
+    "@effect/platform-bun": "latest",
+    "@effect/sql": "latest",
+    "@effect/sql-pg": "latest",
+    "drizzle-orm": "^0.44",
+    "@effect/sql-drizzle": "latest"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31",
+    "@types/bun": "latest"
+  }
+}
