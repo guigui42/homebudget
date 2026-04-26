@@ -15,7 +15,7 @@
     "@effect/platform-bun": "latest",
     "@effect/sql": "latest",
     "@effect/sql-pg": "latest",
-    "drizzle-orm": "^0.44",
+    "drizzle-orm": "^0.45",
     "@effect/sql-drizzle": "latest"
   },
   "devDependencies": {
