@@ -9,7 +9,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     },
   })
   if (!res.ok) {
-    throw new Error(`API error: ${res.status} ${res.statusText}`)
+    let errorMessage = `API error: ${res.status} ${res.statusText}`
+    try {
+      const errorBody = await res.json()
+      if (errorBody.error) errorMessage += `: ${errorBody.error}`
+      else if (errorBody.message) errorMessage += `: ${errorBody.message}`
+    } catch {}
+    throw new Error(errorMessage)
   }
   if (res.status === 204 || res.headers.get("content-length") === "0") {
     return undefined as T

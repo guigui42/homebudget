@@ -21,16 +21,12 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import { categories, evolution } from "../api/client"
+import { CHART_COLORS as COLORS } from "../constants"
 import type {
   ExpenseCategory,
   PriceEvolutionSeries,
   TimePoint,
 } from "../api/client"
-
-const COLORS = [
-  "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
-  "#edc948", "#b07aa1", "#ff9da7", "#9c755f", "#bab0ac",
-]
 
 export function EvolutionPage() {
   const [allCategories, setAllCategories] = useState<ExpenseCategory[]>([])
@@ -45,7 +41,7 @@ export function EvolutionPage() {
   }, [])
 
   // Leaf categories only (the ones with prices)
-  const leafCategories = allCategories.filter((c) => c.parentId !== null || !allCategories.some(ch => ch.parentId === c.id))
+  const leafCategories = allCategories.filter((c) => !allCategories.some(ch => ch.parentId === c.id))
 
   const categoryOptions = leafCategories.map((c) => ({
     value: String(c.id),

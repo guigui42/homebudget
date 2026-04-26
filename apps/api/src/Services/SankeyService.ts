@@ -152,23 +152,14 @@ export const computeSankey = (date: string) =>
       }
     }
 
-    // Savings / deficit
+    // Savings / deficit — not included in the Sankey diagram (dominates visually),
+    // but returned in the metadata for the summary cards
     const savings = salaryMonthly - totalExpenses
-    if (Math.abs(savings) > 0.01) {
-      const label = savings > 0 ? "Savings" : "Deficit"
-      nodes.push({
-        id: "savings",
-        name: label,
-        value: Math.round(Math.abs(savings) * 100) / 100,
-        color: savings > 0 ? "#4caf50" : "#f44336",
-      })
-      if (savings > 0) {
-        links.push({
-          source: "salary",
-          target: "savings",
-          value: Math.round(savings * 100) / 100,
-        })
-      }
+
+    // Set salary node value to total expenses so the diagram scales to expenses only
+    const salaryNode = nodes.find((n) => n.id === "salary")
+    if (salaryNode) {
+      salaryNode.value = Math.round(totalExpenses * 100) / 100
     }
 
     const exchangeRates: Record<string, number> = {}

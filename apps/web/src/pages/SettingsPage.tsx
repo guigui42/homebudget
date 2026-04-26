@@ -16,7 +16,9 @@ import {
   Stack,
   Paper,
 } from "@mantine/core"
+import { DatePickerInput } from "@mantine/dates"
 import { useDisclosure } from "@mantine/hooks"
+import { modals } from "@mantine/modals"
 import {
   locations,
   categories,
@@ -73,7 +75,13 @@ function LocationsTab() {
               <Table.Td>{loc.country}</Table.Td>
               <Table.Td><Badge variant="light">{loc.currency}</Badge></Table.Td>
               <Table.Td>
-                <ActionIcon variant="subtle" color="red" size="sm" onClick={async () => { await locations.remove(loc.id); load() }}>✕</ActionIcon>
+                <ActionIcon variant="subtle" color="red" size="sm" onClick={() => modals.openConfirmModal({
+                  title: 'Delete location',
+                  children: <Text size="sm">Are you sure you want to delete &quot;{loc.name}&quot;? This cannot be undone.</Text>,
+                  labels: { confirm: 'Delete', cancel: 'Cancel' },
+                  confirmProps: { color: 'red' },
+                  onConfirm: async () => { try { await locations.remove(loc.id); load() } catch (e) { console.error('Failed to delete location:', e) } },
+                })}>✕</ActionIcon>
               </Table.Td>
             </Table.Tr>
           ))}
@@ -153,7 +161,13 @@ function CategoriesTab() {
                               <Group key={ch.id} ml="md" gap="xs">
                                 <Text size="sm">↳ {ch.name}</Text>
                                 <Badge size="xs" variant="outline">{ch.frequency}</Badge>
-                                <ActionIcon variant="subtle" color="red" size="xs" onClick={async () => { await categories.remove(ch.id); load() }}>✕</ActionIcon>
+                                <ActionIcon variant="subtle" color="red" size="xs" onClick={() => modals.openConfirmModal({
+                                  title: 'Delete category',
+                                  children: <Text size="sm">Are you sure you want to delete &quot;{ch.name}&quot;? This cannot be undone.</Text>,
+                                  labels: { confirm: 'Delete', cancel: 'Cancel' },
+                                  confirmProps: { color: 'red' },
+                                  onConfirm: async () => { try { await categories.remove(ch.id); load() } catch (e) { console.error('Failed to delete category:', e) } },
+                                })}>✕</ActionIcon>
                               </Group>
                             ))}
                           </div>
@@ -165,7 +179,13 @@ function CategoriesTab() {
                         )}
                       </Table.Td>
                       <Table.Td w={40}>
-                        <ActionIcon variant="subtle" color="red" size="sm" onClick={async () => { await categories.remove(cat.id); load() }}>✕</ActionIcon>
+                        <ActionIcon variant="subtle" color="red" size="sm" onClick={() => modals.openConfirmModal({
+                          title: 'Delete category',
+                          children: <Text size="sm">Are you sure you want to delete &quot;{cat.name}&quot;? This cannot be undone.</Text>,
+                          labels: { confirm: 'Delete', cancel: 'Cancel' },
+                          confirmProps: { color: 'red' },
+                          onConfirm: async () => { try { await categories.remove(cat.id); load() } catch (e) { console.error('Failed to delete category:', e) } },
+                        })}>✕</ActionIcon>
                       </Table.Td>
                     </Table.Tr>
                   )
@@ -197,15 +217,15 @@ function CategoriesTab() {
 function SalaryTab() {
   const [items, setItems] = useState<SalaryEntry[]>([])
   const [opened, { open, close }] = useDisclosure(false)
-  const [form, setForm] = useState({ amount: 0, effectiveFrom: "", note: "" })
+  const [form, setForm] = useState({ amount: 0, effectiveFrom: null as Date | null, note: "" })
 
   const load = useCallback(() => { salary.history().then(setItems) }, [])
   useEffect(load, [load])
 
   const submit = async () => {
-    await salary.create({ amount: form.amount, effectiveFrom: form.effectiveFrom, note: form.note || undefined })
+    await salary.create({ amount: form.amount, effectiveFrom: form.effectiveFrom!.toISOString().slice(0, 10), note: form.note || undefined })
     close()
-    setForm({ amount: 0, effectiveFrom: "", note: "" })
+    setForm({ amount: 0, effectiveFrom: null, note: "" })
     load()
   }
 
@@ -233,7 +253,13 @@ function SalaryTab() {
               <Table.Td>{entry.currency}</Table.Td>
               <Table.Td><Text size="sm" c="dimmed">{entry.note ?? ""}</Text></Table.Td>
               <Table.Td>
-                <ActionIcon variant="subtle" color="red" size="sm" onClick={async () => { await salary.remove(entry.id); load() }}>✕</ActionIcon>
+                <ActionIcon variant="subtle" color="red" size="sm" onClick={() => modals.openConfirmModal({
+                  title: 'Delete salary entry',
+                  children: <Text size="sm">Are you sure you want to delete the salary entry from {entry.effectiveFrom}? This cannot be undone.</Text>,
+                  labels: { confirm: 'Delete', cancel: 'Cancel' },
+                  confirmProps: { color: 'red' },
+                  onConfirm: async () => { try { await salary.remove(entry.id); load() } catch (e) { console.error('Failed to delete salary entry:', e) } },
+                })}>✕</ActionIcon>
               </Table.Td>
             </Table.Tr>
           ))}
@@ -243,7 +269,7 @@ function SalaryTab() {
       <Modal opened={opened} onClose={close} title="Add Salary Entry">
         <Stack>
           <NumberInput label="Monthly Amount (EUR)" value={form.amount} onChange={(v) => setForm({ ...form, amount: Number(v) })} min={0} />
-          <TextInput label="Effective From" placeholder="YYYY-MM-DD" value={form.effectiveFrom} onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })} />
+          <DatePickerInput label="Effective From" value={form.effectiveFrom} onChange={(v) => setForm({ ...form, effectiveFrom: v })} clearable />
           <TextInput label="Note (optional)" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
           <Button onClick={submit} disabled={!form.amount || !form.effectiveFrom}>Save</Button>
         </Stack>
@@ -262,14 +288,14 @@ function PricesTab() {
   const [selectedCat, setSelectedCat] = useState<number | null>(null)
   const [priceItems, setPriceItems] = useState<PriceEntry[]>([])
   const [opened, { open, close }] = useDisclosure(false)
-  const [form, setForm] = useState({ amount: 0, effectiveFrom: "", note: "" })
+  const [form, setForm] = useState({ amount: 0, effectiveFrom: null as Date | null, note: "" })
 
   useEffect(() => {
     locations.list().then(setLocs)
     categories.listAll().then(setCats)
   }, [])
 
-  const leafCats = cats.filter((c) => c.parentId !== null || !cats.some((ch) => ch.parentId === c.id))
+  const leafCats = cats.filter((c) => !cats.some((ch) => ch.parentId === c.id))
 
   useEffect(() => {
     if (selectedCat) prices.history(selectedCat).then(setPriceItems)
@@ -286,11 +312,11 @@ function PricesTab() {
       expenseCategoryId: selectedCat,
       amount: form.amount,
       currency: catCurrency,
-      effectiveFrom: form.effectiveFrom,
+      effectiveFrom: form.effectiveFrom!.toISOString().slice(0, 10),
       note: form.note || undefined,
     })
     close()
-    setForm({ amount: 0, effectiveFrom: "", note: "" })
+    setForm({ amount: 0, effectiveFrom: null, note: "" })
     prices.history(selectedCat).then(setPriceItems)
   }
 
@@ -336,7 +362,13 @@ function PricesTab() {
                 <Table.Td>{entry.currency}</Table.Td>
                 <Table.Td><Text size="sm" c="dimmed">{entry.note ?? ""}</Text></Table.Td>
                 <Table.Td>
-                  <ActionIcon variant="subtle" color="red" size="sm" onClick={async () => { await prices.remove(entry.id); if (selectedCat) prices.history(selectedCat).then(setPriceItems) }}>✕</ActionIcon>
+                  <ActionIcon variant="subtle" color="red" size="sm" onClick={() => modals.openConfirmModal({
+                    title: 'Delete price entry',
+                    children: <Text size="sm">Are you sure you want to delete the price entry from {entry.effectiveFrom}? This cannot be undone.</Text>,
+                    labels: { confirm: 'Delete', cancel: 'Cancel' },
+                    confirmProps: { color: 'red' },
+                    onConfirm: async () => { try { await prices.remove(entry.id); if (selectedCat) prices.history(selectedCat).then(setPriceItems) } catch (e) { console.error('Failed to delete price entry:', e) } },
+                  })}>✕</ActionIcon>
                 </Table.Td>
               </Table.Tr>
             ))}
@@ -347,7 +379,7 @@ function PricesTab() {
       <Modal opened={opened} onClose={close} title="Add Price Entry">
         <Stack>
           <NumberInput label={`Amount (${catCurrency})`} value={form.amount} onChange={(v) => setForm({ ...form, amount: Number(v) })} min={0} decimalScale={2} />
-          <TextInput label="Effective From" placeholder="YYYY-MM-DD" value={form.effectiveFrom} onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })} />
+          <DatePickerInput label="Effective From" value={form.effectiveFrom} onChange={(v) => setForm({ ...form, effectiveFrom: v })} clearable />
           <TextInput label="Note (optional)" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
           <Button onClick={submit} disabled={!form.amount || !form.effectiveFrom}>Save</Button>
         </Stack>
@@ -363,16 +395,16 @@ function PricesTab() {
 function ExchangeRatesTab() {
   const [items, setItems] = useState<ExchangeRateEntry[]>([])
   const [opened, { open, close }] = useDisclosure(false)
-  const [form, setForm] = useState({ rate: 0, effectiveFrom: "" })
+  const [form, setForm] = useState({ rate: 0, effectiveFrom: null as Date | null })
   const [fetching, setFetching] = useState(false)
 
   const load = useCallback(() => { exchangeRates.history().then(setItems) }, [])
   useEffect(load, [load])
 
   const submit = async () => {
-    await exchangeRates.create({ rate: form.rate, effectiveFrom: form.effectiveFrom })
+    await exchangeRates.create({ rate: form.rate, effectiveFrom: form.effectiveFrom!.toISOString().slice(0, 10) })
     close()
-    setForm({ rate: 0, effectiveFrom: "" })
+    setForm({ rate: 0, effectiveFrom: null })
     load()
   }
 
@@ -413,7 +445,13 @@ function ExchangeRatesTab() {
               <Table.Td fw={600}>{entry.rate.toFixed(4)} PHP</Table.Td>
               <Table.Td><Badge size="sm" variant="light" color={entry.source === "ecb" ? "blue" : "gray"}>{entry.source}</Badge></Table.Td>
               <Table.Td>
-                <ActionIcon variant="subtle" color="red" size="sm" onClick={async () => { await exchangeRates.remove(entry.id); load() }}>✕</ActionIcon>
+                <ActionIcon variant="subtle" color="red" size="sm" onClick={() => modals.openConfirmModal({
+                  title: 'Delete exchange rate',
+                  children: <Text size="sm">Are you sure you want to delete the exchange rate from {entry.effectiveFrom}? This cannot be undone.</Text>,
+                  labels: { confirm: 'Delete', cancel: 'Cancel' },
+                  confirmProps: { color: 'red' },
+                  onConfirm: async () => { try { await exchangeRates.remove(entry.id); load() } catch (e) { console.error('Failed to delete exchange rate:', e) } },
+                })}>✕</ActionIcon>
               </Table.Td>
             </Table.Tr>
           ))}
@@ -423,7 +461,7 @@ function ExchangeRatesTab() {
       <Modal opened={opened} onClose={close} title="Add Exchange Rate">
         <Stack>
           <NumberInput label="Rate (1 EUR = X PHP)" value={form.rate} onChange={(v) => setForm({ ...form, rate: Number(v) })} min={0} decimalScale={6} />
-          <TextInput label="Effective From" placeholder="YYYY-MM-DD" value={form.effectiveFrom} onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })} />
+          <DatePickerInput label="Effective From" value={form.effectiveFrom} onChange={(v) => setForm({ ...form, effectiveFrom: v })} clearable />
           <Button onClick={submit} disabled={!form.rate || !form.effectiveFrom}>Save</Button>
         </Stack>
       </Modal>

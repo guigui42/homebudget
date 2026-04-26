@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
+import { useElementSize } from "@mantine/hooks"
 import {
   Container,
   Group,
@@ -20,6 +21,7 @@ function fmt(n: number) {
 }
 
 export function SankeyPage() {
+  const { ref: chartRef, width: chartWidth } = useElementSize()
   const [date, setDate] = useState<Date | null>(new Date())
   const [data, setData] = useState<SankeyData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -109,8 +111,8 @@ export function SankeyPage() {
             </Card>
           </SimpleGrid>
 
-          <Paper withBorder p="md">
-            <SankeyChart data={data} width={900} height={Math.max(400, data.nodes.length * 40)} />
+          <Paper ref={chartRef} withBorder p="md" style={{ overflowX: 'auto' }}>
+            <SankeyChart data={data} width={Math.max(600, (chartWidth || 900) - 32)} height={Math.max(400, data.nodes.length * 40)} />
           </Paper>
 
           <Group mt="sm">

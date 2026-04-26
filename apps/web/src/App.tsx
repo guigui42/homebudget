@@ -1,6 +1,7 @@
 import "@mantine/core/styles.css"
 import "@mantine/dates/styles.css"
 import { MantineProvider, AppShell, NavLink, Group, Title } from "@mantine/core"
+import { ModalsProvider } from "@mantine/modals"
 import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom"
 import { SankeyPage } from "./pages/SankeyPage.js"
 import { EvolutionPage } from "./pages/EvolutionPage.js"
@@ -20,6 +21,7 @@ function Navigation() {
 export function App() {
   return (
     <MantineProvider defaultColorScheme="auto">
+      <ModalsProvider>
       <BrowserRouter>
         <AppShell navbar={{ width: 220, breakpoint: "sm" }} padding="md">
           <AppShell.Header>
@@ -37,6 +39,7 @@ export function App() {
           </AppShell.Main>
         </AppShell>
       </BrowserRouter>
+      </ModalsProvider>
     </MantineProvider>
   )
 }
