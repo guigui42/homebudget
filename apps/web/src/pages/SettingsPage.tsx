@@ -15,6 +15,10 @@ import {
   Badge,
   Stack,
   Paper,
+  Box,
+  Tooltip,
+  ColorInput,
+  ColorSwatch,
 } from "@mantine/core"
 import { DatePickerInput } from "@mantine/dates"
 import { useDisclosure } from "@mantine/hooks"
@@ -104,11 +108,16 @@ function LocationsTab() {
 // Categories Tab
 // ---------------------------------------------------------------------------
 
+type ActiveDraft =
+  | null
+  | { mode: "add"; locationId: number; parentId: number | null }
+  | { mode: "edit"; id: number }
+
 function CategoriesTab() {
   const [locs, setLocs] = useState<Location[]>([])
   const [items, setItems] = useState<ExpenseCategory[]>([])
-  const [opened, { open, close }] = useDisclosure(false)
-  const [form, setForm] = useState({ locationId: 0, parentId: null as number | null, name: "", frequency: "monthly", color: "" })
+  const [activeDraft, setActiveDraft] = useState<ActiveDraft>(null)
+  const [draft, setDraft] = useState({ name: "", frequency: "monthly", color: "" })
 
   const load = useCallback(() => {
     locations.list().then(setLocs)
@@ -116,96 +125,210 @@ function CategoriesTab() {
   }, [])
   useEffect(load, [load])
 
-  const groups = items.filter((c) => c.parentId === null && items.some((ch) => ch.parentId === c.id))
-  const parentOptions = [
-    { value: "", label: "(no group)" },
-    ...groups.map((g) => ({ value: String(g.id), label: `${g.name} (${locs.find((l) => l.id === g.locationId)?.name ?? ""})` })),
-  ]
+  const resetDraft = () => {
+    setActiveDraft(null)
+    setDraft({ name: "", frequency: "monthly", color: "" })
+  }
 
-  const submit = async () => {
+  const startAdd = (locationId: number, parentId: number | null) => {
+    setActiveDraft({ mode: "add", locationId, parentId })
+    setDraft({ name: "", frequency: "monthly", color: "" })
+  }
+
+  const startEdit = (cat: ExpenseCategory) => {
+    setActiveDraft({ mode: "edit", id: cat.id })
+    setDraft({ name: cat.name, frequency: cat.frequency, color: cat.color ?? "" })
+  }
+
+  const submitAdd = async () => {
+    if (activeDraft?.mode !== "add" || !draft.name) return
     await categories.create({
-      locationId: form.locationId,
-      parentId: form.parentId,
-      name: form.name,
-      frequency: form.frequency,
-      color: form.color || undefined,
+      locationId: activeDraft.locationId,
+      parentId: activeDraft.parentId,
+      name: draft.name,
+      frequency: draft.frequency,
+      color: draft.color || undefined,
     })
-    close()
-    setForm({ locationId: 0, parentId: null, name: "", frequency: "monthly", color: "" })
+    resetDraft()
     load()
   }
 
+  const submitEdit = async () => {
+    if (activeDraft?.mode !== "edit") return
+    await categories.update(activeDraft.id, {
+      name: draft.name,
+      frequency: draft.frequency,
+      color: draft.color || null,
+    })
+    resetDraft()
+    load()
+  }
+
+  const confirmDelete = (cat: ExpenseCategory) => {
+    const children = items.filter((c) => c.parentId === cat.id)
+    const msg = children.length
+      ? `Delete "${cat.name}" and its ${children.length} sub-categor${children.length === 1 ? "y" : "ies"}? This cannot be undone.`
+      : `Delete "${cat.name}"? This cannot be undone.`
+    modals.openConfirmModal({
+      title: "Delete category",
+      children: <Text size="sm">{msg}</Text>,
+      labels: { confirm: "Delete", cancel: "Cancel" },
+      confirmProps: { color: "red" },
+      onConfirm: async () => {
+        try {
+          for (const child of children) await categories.remove(child.id)
+          await categories.remove(cat.id)
+          load()
+        } catch (e) {
+          console.error("Failed to delete category:", e)
+        }
+      },
+    })
+  }
+
+  const DraftRow = ({ onSubmit, onCancel, indent }: { onSubmit: () => void; onCancel: () => void; indent?: boolean }) => (
+    <Group gap="sm" py={8} pl={indent ? 28 : 0} wrap="wrap">
+      {indent && <Text c="dimmed">↳</Text>}
+      <TextInput
+        placeholder="Category name"
+        size="sm"
+        value={draft.name}
+        onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+        style={{ flex: 1, minWidth: 180 }}
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && draft.name) onSubmit()
+          if (e.key === "Escape") onCancel()
+        }}
+      />
+      <Select
+        size="sm"
+        data={["weekly", "monthly", "quarterly", "yearly"]}
+        value={draft.frequency}
+        onChange={(v) => setDraft({ ...draft, frequency: v ?? "monthly" })}
+        w={120}
+        allowDeselect={false}
+      />
+      <ColorInput
+        size="sm"
+        placeholder="Color"
+        value={draft.color}
+        onChange={(v) => setDraft({ ...draft, color: v })}
+        w={140}
+        swatches={["#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f", "#edc948", "#b07aa1", "#ff9da7", "#9c755f", "#bab0ac"]}
+      />
+      <Group gap={4} wrap="nowrap">
+        <ActionIcon size="md" variant="filled" color="blue" onClick={onSubmit} disabled={!draft.name}>
+          ✓
+        </ActionIcon>
+        <ActionIcon size="md" variant="subtle" color="gray" onClick={onCancel}>
+          ✕
+        </ActionIcon>
+      </Group>
+    </Group>
+  )
+
   return (
     <>
-      <Group justify="space-between" mb="md">
-        <Title order={4}>Expense Categories</Title>
-        <Button size="xs" onClick={open}>+ Add Category</Button>
-      </Group>
+      <Title order={4} mb="md">Expense Categories</Title>
       {locs.map((loc) => {
         const locCats = items.filter((c) => c.locationId === loc.id)
-        const topLevel = locCats.filter((c) => c.parentId === null)
+        const roots = locCats.filter((c) => c.parentId === null)
+
         return (
-          <Paper key={loc.id} withBorder p="sm" mb="md">
-            <Text fw={600} mb="xs">{loc.name} <Badge size="xs" variant="light">{loc.currency}</Badge></Text>
-            <Table striped>
-              <Table.Tbody>
-                {topLevel.map((cat) => {
-                  const children = locCats.filter((c) => c.parentId === cat.id)
+          <Paper key={loc.id} withBorder p="md" mb="md">
+            <Group gap="xs" mb="sm">
+              <Text fw={600} size="lg">{loc.name}</Text>
+              <Badge size="sm" variant="light">{loc.currency}</Badge>
+            </Group>
+
+            <Stack gap={0}>
+              {roots.map((root) => {
+                const children = locCats.filter((c) => c.parentId === root.id)
+                const isGroup = children.length > 0
+
+                if (activeDraft?.mode === "edit" && activeDraft.id === root.id) {
                   return (
-                    <Table.Tr key={cat.id}>
-                      <Table.Td>
-                        {children.length > 0 ? (
-                          <div>
-                            <Text fw={500}>{cat.name}</Text>
-                            {children.map((ch) => (
-                              <Group key={ch.id} ml="md" gap="xs">
-                                <Text size="sm">↳ {ch.name}</Text>
-                                <Badge size="xs" variant="outline">{ch.frequency}</Badge>
-                                <ActionIcon variant="subtle" color="red" size="xs" onClick={() => modals.openConfirmModal({
-                                  title: 'Delete category',
-                                  children: <Text size="sm">Are you sure you want to delete &quot;{ch.name}&quot;? This cannot be undone.</Text>,
-                                  labels: { confirm: 'Delete', cancel: 'Cancel' },
-                                  confirmProps: { color: 'red' },
-                                  onConfirm: async () => { try { await categories.remove(ch.id); load() } catch (e) { console.error('Failed to delete category:', e) } },
-                                })}>✕</ActionIcon>
-                              </Group>
-                            ))}
-                          </div>
-                        ) : (
-                          <Group gap="xs">
-                            <Text>{cat.name}</Text>
-                            <Badge size="xs" variant="outline">{cat.frequency}</Badge>
-                          </Group>
-                        )}
-                      </Table.Td>
-                      <Table.Td w={40}>
-                        <ActionIcon variant="subtle" color="red" size="sm" onClick={() => modals.openConfirmModal({
-                          title: 'Delete category',
-                          children: <Text size="sm">Are you sure you want to delete &quot;{cat.name}&quot;? This cannot be undone.</Text>,
-                          labels: { confirm: 'Delete', cancel: 'Cancel' },
-                          confirmProps: { color: 'red' },
-                          onConfirm: async () => { try { await categories.remove(cat.id); load() } catch (e) { console.error('Failed to delete category:', e) } },
-                        })}>✕</ActionIcon>
-                      </Table.Td>
-                    </Table.Tr>
+                    <Box key={root.id} mb={isGroup ? "xs" : 0}>
+                      <DraftRow onSubmit={submitEdit} onCancel={resetDraft} />
+                      {children.map((ch) => (
+                        <Group key={ch.id} gap="sm" py={6} pl={28} wrap="nowrap">
+                          <Text c="dimmed">↳</Text>
+                          {ch.color && <ColorSwatch size={12} color={ch.color} />}
+                          <Text style={{ flex: 1 }}>{ch.name}</Text>
+                          <Badge size="sm" variant="outline">{ch.frequency}</Badge>
+                        </Group>
+                      ))}
+                    </Box>
                   )
-                })}
-              </Table.Tbody>
-            </Table>
+                }
+
+                return (
+                  <Box key={root.id} mb={isGroup ? "xs" : 0}>
+                    {/* Root category row */}
+                    <Group gap="sm" py={6} wrap="nowrap">
+                      {root.color && <ColorSwatch size={14} color={root.color} />}
+                      <Text fw={isGroup ? 600 : 400} style={{ flex: 1 }}>{root.name}</Text>
+                      <Badge size="sm" variant="outline">{root.frequency}</Badge>
+                      <Tooltip label="Add sub-category" withArrow>
+                        <ActionIcon variant="subtle" size="sm" c="dimmed" onClick={() => startAdd(loc.id, root.id)}>+</ActionIcon>
+                      </Tooltip>
+                      <Tooltip label="Edit" withArrow>
+                        <ActionIcon variant="subtle" size="sm" onClick={() => startEdit(root)}>✎</ActionIcon>
+                      </Tooltip>
+                      <Tooltip label="Delete" withArrow>
+                        <ActionIcon variant="subtle" color="red" size="sm" onClick={() => confirmDelete(root)}>✕</ActionIcon>
+                      </Tooltip>
+                    </Group>
+
+                    {/* Children */}
+                    {children.map((ch) =>
+                      activeDraft?.mode === "edit" && activeDraft.id === ch.id ? (
+                        <DraftRow key={ch.id} onSubmit={submitEdit} onCancel={resetDraft} indent />
+                      ) : (
+                        <Group key={ch.id} gap="sm" py={6} pl={28} wrap="nowrap">
+                          <Text c="dimmed">↳</Text>
+                          {ch.color && <ColorSwatch size={12} color={ch.color} />}
+                          <Text style={{ flex: 1 }}>{ch.name}</Text>
+                          <Badge size="sm" variant="outline">{ch.frequency}</Badge>
+                          <Tooltip label="Edit" withArrow>
+                            <ActionIcon variant="subtle" size="sm" onClick={() => startEdit(ch)}>✎</ActionIcon>
+                          </Tooltip>
+                          <Tooltip label="Delete" withArrow>
+                            <ActionIcon variant="subtle" color="red" size="sm" onClick={() => confirmDelete(ch)}>✕</ActionIcon>
+                          </Tooltip>
+                        </Group>
+                      ),
+                    )}
+
+                    {/* Inline add for sub-category */}
+                    {activeDraft?.mode === "add" && activeDraft.parentId === root.id ? (
+                      <DraftRow onSubmit={submitAdd} onCancel={resetDraft} indent />
+                    ) : isGroup ? (
+                      <Group pl={28} py={4}>
+                        <Button variant="subtle" size="compact-sm" c="dimmed" onClick={() => startAdd(loc.id, root.id)}>
+                          + Add sub-category
+                        </Button>
+                      </Group>
+                    ) : null}
+                  </Box>
+                )
+              })}
+            </Stack>
+
+            {/* Add root category at location level */}
+            {activeDraft?.mode === "add" && activeDraft.locationId === loc.id && activeDraft.parentId === null ? (
+              <Box mt="xs">
+                <DraftRow onSubmit={submitAdd} onCancel={resetDraft} />
+              </Box>
+            ) : (
+              <Button variant="subtle" size="compact-sm" mt="xs" c="dimmed" onClick={() => startAdd(loc.id, null)}>
+                + Add category
+              </Button>
+            )}
           </Paper>
         )
       })}
-
-      <Modal opened={opened} onClose={close} title="Add Category">
-        <Stack>
-          <Select label="Location" data={locs.map((l) => ({ value: String(l.id), label: l.name }))} value={form.locationId ? String(form.locationId) : null} onChange={(v) => setForm({ ...form, locationId: Number(v) })} />
-          <Select label="Parent Group (optional)" data={parentOptions} value={form.parentId ? String(form.parentId) : ""} onChange={(v) => setForm({ ...form, parentId: v ? Number(v) : null })} clearable />
-          <TextInput label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <Select label="Frequency" data={["weekly", "monthly", "quarterly", "yearly"]} value={form.frequency} onChange={(v) => setForm({ ...form, frequency: v ?? "monthly" })} />
-          <TextInput label="Color (hex, optional)" placeholder="#4e79a7" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
-          <Button onClick={submit} disabled={!form.name || !form.locationId}>Save</Button>
-        </Stack>
-      </Modal>
     </>
   )
 }
@@ -285,105 +408,214 @@ function SalaryTab() {
 function PricesTab() {
   const [locs, setLocs] = useState<Location[]>([])
   const [cats, setCats] = useState<ExpenseCategory[]>([])
-  const [selectedCat, setSelectedCat] = useState<number | null>(null)
-  const [priceItems, setPriceItems] = useState<PriceEntry[]>([])
-  const [opened, { open, close }] = useDisclosure(false)
-  const [form, setForm] = useState({ amount: 0, effectiveFrom: null as Date | null, note: "" })
+  const [allPrices, setAllPrices] = useState<Record<number, PriceEntry[]>>({})
+  const [expandedCat, setExpandedCat] = useState<number | null>(null)
+  const [addingTo, setAddingTo] = useState<number | null>(null)
+  const [addForm, setAddForm] = useState({ amount: 0, effectiveFrom: null as Date | null, note: "" })
 
-  useEffect(() => {
-    locations.list().then(setLocs)
-    categories.listAll().then(setCats)
+  const loadPrices = useCallback(async (catList: ExpenseCategory[]) => {
+    const leaves = catList.filter((c) => !catList.some((ch) => ch.parentId === c.id))
+    const entries = await Promise.all(leaves.map((c) => prices.history(c.id).then((h) => [c.id, h] as const)))
+    setAllPrices(Object.fromEntries(entries))
   }, [])
 
-  const leafCats = cats.filter((c) => !cats.some((ch) => ch.parentId === c.id))
+  const load = useCallback(async () => {
+    const [l, c] = await Promise.all([locations.list(), categories.listAll()])
+    setLocs(l)
+    setCats(c)
+    await loadPrices(c)
+  }, [loadPrices])
 
-  useEffect(() => {
-    if (selectedCat) prices.history(selectedCat).then(setPriceItems)
-    else setPriceItems([])
-  }, [selectedCat])
+  useEffect(() => { load() }, [load])
 
-  const catCurrency = selectedCat
-    ? locs.find((l) => l.id === cats.find((c) => c.id === selectedCat)?.locationId)?.currency ?? "EUR"
-    : "EUR"
+  const toggleExpand = (catId: number) => {
+    setExpandedCat((prev) => prev === catId ? null : catId)
+    if (addingTo !== catId) setAddingTo(null)
+  }
 
-  const submit = async () => {
-    if (!selectedCat) return
+  const startAdd = (catId: number) => {
+    setAddingTo(catId)
+    setExpandedCat(catId)
+    setAddForm({ amount: 0, effectiveFrom: null, note: "" })
+  }
+
+  const cancelAdd = () => {
+    setAddingTo(null)
+    setAddForm({ amount: 0, effectiveFrom: null, note: "" })
+  }
+
+  const submitAdd = async () => {
+    if (!addingTo) return
+    const catId = addingTo
+    const currency = locs.find((l) => l.id === cats.find((c) => c.id === catId)?.locationId)?.currency ?? "EUR"
     await prices.create({
-      expenseCategoryId: selectedCat,
-      amount: form.amount,
-      currency: catCurrency,
-      effectiveFrom: form.effectiveFrom!.toISOString().slice(0, 10),
-      note: form.note || undefined,
+      expenseCategoryId: catId,
+      amount: addForm.amount,
+      currency,
+      effectiveFrom: addForm.effectiveFrom!.toISOString().slice(0, 10),
+      note: addForm.note || undefined,
     })
-    close()
-    setForm({ amount: 0, effectiveFrom: null, note: "" })
-    prices.history(selectedCat).then(setPriceItems)
+    setAddingTo(null)
+    setAddForm({ amount: 0, effectiveFrom: null, note: "" })
+    const updated = await prices.history(catId)
+    setAllPrices((prev) => ({ ...prev, [catId]: updated }))
+  }
+
+  const confirmDeletePrice = (entry: PriceEntry) => {
+    modals.openConfirmModal({
+      title: "Delete price entry",
+      children: <Text size="sm">Delete the price entry from {entry.effectiveFrom}? This cannot be undone.</Text>,
+      labels: { confirm: "Delete", cancel: "Cancel" },
+      confirmProps: { color: "red" },
+      onConfirm: async () => {
+        try {
+          await prices.remove(entry.id)
+          const updated = await prices.history(entry.expenseCategoryId)
+          setAllPrices((prev) => ({ ...prev, [entry.expenseCategoryId]: updated }))
+        } catch (e) {
+          console.error("Failed to delete price entry:", e)
+        }
+      },
+    })
+  }
+
+  const LeafRow = ({ cat, indent }: { cat: ExpenseCategory; indent?: boolean }) => {
+    const history = allPrices[cat.id] ?? []
+    const latest = history[0]
+    const isExpanded = expandedCat === cat.id
+    const currency = locs.find((l) => l.id === cat.locationId)?.currency ?? "EUR"
+
+    return (
+      <Box>
+        <Group
+          gap="sm" py={6} pl={indent ? 28 : 0} wrap="nowrap"
+          style={{ cursor: "pointer" }}
+          onClick={() => toggleExpand(cat.id)}
+        >
+          {indent && <Text c="dimmed">↳</Text>}
+          {cat.color && <ColorSwatch size={12} color={cat.color} />}
+          <Text style={{ flex: 1 }}>{cat.name}</Text>
+          {latest ? (
+            <>
+              <Text fw={600}>{latest.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} {latest.currency}</Text>
+              <Text size="sm" c="dimmed">since {latest.effectiveFrom}</Text>
+            </>
+          ) : (
+            <Text size="sm" c="dimmed" fs="italic">no price set</Text>
+          )}
+          <Tooltip label="Add price" withArrow>
+            <ActionIcon variant="subtle" size="sm" onClick={(e) => { e.stopPropagation(); startAdd(cat.id) }}>+</ActionIcon>
+          </Tooltip>
+          <Text size="xs" c="dimmed">{isExpanded ? "▾" : "▸"}</Text>
+        </Group>
+
+        {isExpanded && (
+          <Box pl={indent ? 56 : 28} pb="xs">
+            {history.length > 0 ? (
+              <Stack gap={0}>
+                {history.map((entry) => (
+                  <Group key={entry.id} gap="sm" py={4} wrap="nowrap">
+                    <Text size="sm" c="dimmed" w={100}>{entry.effectiveFrom}</Text>
+                    <Text size="sm" fw={500}>{entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} {entry.currency}</Text>
+                    <Text size="sm" c="dimmed" style={{ flex: 1 }}>{entry.note ?? ""}</Text>
+                    <ActionIcon variant="subtle" color="red" size="sm" onClick={() => confirmDeletePrice(entry)}>✕</ActionIcon>
+                  </Group>
+                ))}
+              </Stack>
+            ) : (
+              <Text size="sm" c="dimmed" py={4}>No price entries yet</Text>
+            )}
+
+            {addingTo === cat.id ? (
+              <Group gap="sm" py={8} wrap="wrap" mt="xs">
+                <NumberInput
+                  placeholder={`Amount (${currency})`}
+                  size="sm"
+                  value={addForm.amount || ""}
+                  onChange={(v) => setAddForm({ ...addForm, amount: Number(v) })}
+                  min={0}
+                  decimalScale={2}
+                  style={{ flex: 1, minWidth: 120 }}
+                  autoFocus
+                />
+                <DatePickerInput
+                  placeholder="Effective from"
+                  size="sm"
+                  value={addForm.effectiveFrom}
+                  onChange={(v) => setAddForm({ ...addForm, effectiveFrom: v })}
+                  w={160}
+                />
+                <TextInput
+                  placeholder="Note (optional)"
+                  size="sm"
+                  value={addForm.note}
+                  onChange={(e) => setAddForm({ ...addForm, note: e.target.value })}
+                  style={{ flex: 1, minWidth: 120 }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && addForm.amount && addForm.effectiveFrom) submitAdd()
+                    if (e.key === "Escape") cancelAdd()
+                  }}
+                />
+                <Group gap={4} wrap="nowrap">
+                  <ActionIcon size="md" variant="filled" color="blue" onClick={submitAdd} disabled={!addForm.amount || !addForm.effectiveFrom}>✓</ActionIcon>
+                  <ActionIcon size="md" variant="subtle" color="gray" onClick={cancelAdd}>✕</ActionIcon>
+                </Group>
+              </Group>
+            ) : (
+              <Button variant="subtle" size="compact-sm" c="dimmed" mt="xs" onClick={() => startAdd(cat.id)}>
+                + Add price
+              </Button>
+            )}
+          </Box>
+        )}
+      </Box>
+    )
   }
 
   return (
     <>
-      <Group justify="space-between" mb="md">
-        <Title order={4}>Price History</Title>
-        <Group>
-          <Select
-            placeholder="Select category"
-            data={leafCats.map((c) => ({
-              value: String(c.id),
-              label: `${c.name} (${locs.find((l) => l.id === c.locationId)?.name ?? ""})`,
-            }))}
-            value={selectedCat ? String(selectedCat) : null}
-            onChange={(v) => setSelectedCat(v ? Number(v) : null)}
-            searchable
-            clearable
-            w={300}
-          />
-          <Button size="xs" onClick={open} disabled={!selectedCat}>
-            + Add Price
-          </Button>
-        </Group>
-      </Group>
+      <Title order={4} mb="md">Price History</Title>
+      {locs.map((loc) => {
+        const locCats = cats.filter((c) => c.locationId === loc.id)
+        const roots = locCats.filter((c) => c.parentId === null)
 
-      {selectedCat && (
-        <Table striped withTableBorder>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Effective From</Table.Th>
-              <Table.Th>Amount</Table.Th>
-              <Table.Th>Currency</Table.Th>
-              <Table.Th>Note</Table.Th>
-              <Table.Th w={80} />
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {priceItems.map((entry) => (
-              <Table.Tr key={entry.id}>
-                <Table.Td>{entry.effectiveFrom}</Table.Td>
-                <Table.Td fw={600}>{entry.amount.toLocaleString()}</Table.Td>
-                <Table.Td>{entry.currency}</Table.Td>
-                <Table.Td><Text size="sm" c="dimmed">{entry.note ?? ""}</Text></Table.Td>
-                <Table.Td>
-                  <ActionIcon variant="subtle" color="red" size="sm" onClick={() => modals.openConfirmModal({
-                    title: 'Delete price entry',
-                    children: <Text size="sm">Are you sure you want to delete the price entry from {entry.effectiveFrom}? This cannot be undone.</Text>,
-                    labels: { confirm: 'Delete', cancel: 'Cancel' },
-                    confirmProps: { color: 'red' },
-                    onConfirm: async () => { try { await prices.remove(entry.id); if (selectedCat) prices.history(selectedCat).then(setPriceItems) } catch (e) { console.error('Failed to delete price entry:', e) } },
-                  })}>✕</ActionIcon>
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      )}
+        return (
+          <Paper key={loc.id} withBorder p="md" mb="md">
+            <Group gap="xs" mb="sm">
+              <Text fw={600} size="lg">{loc.name}</Text>
+              <Badge size="sm" variant="light">{loc.currency}</Badge>
+            </Group>
 
-      <Modal opened={opened} onClose={close} title="Add Price Entry">
-        <Stack>
-          <NumberInput label={`Amount (${catCurrency})`} value={form.amount} onChange={(v) => setForm({ ...form, amount: Number(v) })} min={0} decimalScale={2} />
-          <DatePickerInput label="Effective From" value={form.effectiveFrom} onChange={(v) => setForm({ ...form, effectiveFrom: v })} clearable />
-          <TextInput label="Note (optional)" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
-          <Button onClick={submit} disabled={!form.amount || !form.effectiveFrom}>Save</Button>
-        </Stack>
-      </Modal>
+            <Stack gap={0}>
+              {roots.map((root) => {
+                const children = locCats.filter((c) => c.parentId === root.id)
+                const isGroup = children.length > 0
+                const isLeaf = !cats.some((ch) => ch.parentId === root.id)
+
+                if (isGroup) {
+                  return (
+                    <Box key={root.id} mb="xs">
+                      <Group gap="sm" py={4}>
+                        {root.color && <ColorSwatch size={14} color={root.color} />}
+                        <Text fw={600}>{root.name}</Text>
+                      </Group>
+                      {children.map((ch) => (
+                        <LeafRow key={ch.id} cat={ch} indent />
+                      ))}
+                    </Box>
+                  )
+                }
+
+                if (isLeaf) {
+                  return <LeafRow key={root.id} cat={root} />
+                }
+
+                return null
+              })}
+            </Stack>
+          </Paper>
+        )
+      })}
     </>
   )
 }
