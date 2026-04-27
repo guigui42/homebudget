@@ -12,27 +12,17 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./apps/api/sql:/docker-entrypoint-initdb.d:ro
 
-  api:
+  app:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
+      dockerfile: Dockerfile
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://homebudget:homebudget@db:5432/homebudget
     ports:
-      - "3210:3210"
-    depends_on:
-      - db
-
-  web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-    restart: unless-stopped
-    ports:
       - "8080:80"
     depends_on:
-      - api
+      - db
 
 volumes:
   pgdata:
