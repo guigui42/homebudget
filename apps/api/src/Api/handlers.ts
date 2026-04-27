@@ -257,10 +257,11 @@ export const EvolutionLive = HttpApiBuilder.group(
             const locTotals = new Map<number, number>()
 
             for (const [catId, prices] of pricesByCategory) {
-              // Find latest price at or before this date
+              // Find latest price at or before this date (prices are chronological)
               let latestPrice: { amount: number; currency: string } | null = null
               for (const p of prices) {
-                if (p.date <= date) latestPrice = p
+                if (p.date > date) break
+                latestPrice = p
               }
               if (!latestPrice) continue
 

@@ -1,5 +1,5 @@
 import { HttpClient } from "@effect/platform"
-import { Effect, Data } from "effect"
+import { Effect, Data, Schema } from "effect"
 
 export class EcbFetchError extends Data.TaggedError("EcbFetchError")<{
   readonly message: string
@@ -13,12 +13,12 @@ export class EcbMissingRateError extends Data.TaggedError("EcbMissingRateError")
   readonly message: string
 }> {}
 
-interface FrankfurterResponse {
-  amount: number
-  base: string
-  date: string
-  rates: Record<string, number>
-}
+const FrankfurterResponse = Schema.Struct({
+  amount: Schema.Number,
+  base: Schema.String,
+  date: Schema.String,
+  rates: Schema.Record({ key: Schema.String, value: Schema.Number }),
+})
 
 export const fetchLatestEurPhp = Effect.gen(function* () {
   const client = yield* HttpClient.HttpClient
@@ -32,9 +32,13 @@ export const fetchLatestEurPhp = Effect.gen(function* () {
     )
   }
 
-  const data = (yield* response.json.pipe(
+  const raw = yield* response.json.pipe(
     Effect.mapError(() => new EcbParseError({ message: "Failed to parse exchange rate response" }))
-  )) as FrankfurterResponse
+  )
+
+  const data = yield* Schema.decodeUnknown(FrankfurterResponse)(raw).pipe(
+    Effect.mapError(() => new EcbParseError({ message: "Unexpected response shape from Frankfurter API" }))
+  )
 
   const rate = data.rates["PHP"]
   if (rate === undefined) {
