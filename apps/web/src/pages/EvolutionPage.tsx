@@ -180,7 +180,7 @@ export function EvolutionPage() {
                   <YAxis domain={["auto", "auto"]} tick={{ fontSize: 12 }} />
                   <Tooltip
                     formatter={(value) =>
-                      `1 EUR = ${Number(value).toFixed(4)} PHP`
+                      value != null ? `1 EUR = ${Number(value).toFixed(4)} PHP` : "—"
                     }
                     contentStyle={{
                       backgroundColor: "var(--mantine-color-body)",

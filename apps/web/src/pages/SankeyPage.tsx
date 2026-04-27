@@ -1,3 +1,4 @@
+import type { ComponentType } from "react"
 import { useState, useEffect, useCallback } from "react"
 import { useElementSize } from "@mantine/hooks"
 import {
@@ -8,8 +9,6 @@ import {
   Text,
   SimpleGrid,
   Card,
-  Loader,
-  Center,
   ThemeIcon,
   Stack,
   Skeleton,
@@ -43,7 +42,7 @@ function StatCard({
 }: {
   label: string
   value: string
-  icon: React.ComponentType<{ size?: number; stroke?: number }>
+  icon: ComponentType<{ size?: number; stroke?: number }>
   color: string
   valueColor?: string
 }) {
