@@ -3,17 +3,6 @@ import { Domain } from "@homebudget/shared"
 import type { Schemas } from "@homebudget/shared"
 import * as Repo from "../Db/repos.js"
 
-interface CategoryWithPrice {
-  id: number
-  locationId: number
-  parentId: number | null
-  name: string
-  frequency: Domain.Frequency
-  color: string | null
-  amount: number
-  currency: string
-}
-
 export const computeSankey = (date: string) =>
   Effect.gen(function* () {
     const salary = yield* Repo.salaryAtDate(date)
@@ -34,11 +23,11 @@ export const computeSankey = (date: string) =>
     const categories = yield* Repo.listAllCategories
     const prices = yield* Repo.pricesAtDate(date)
     const fxEntry = yield* Repo.exchangeRateAtDate(date)
-    const phpToEur = fxEntry ? 1 / (fxEntry as any).rate : 0
+    const phpToEur = fxEntry ? 1 / fxEntry.rate : 0
 
     // Build price lookup: categoryId → price row
     const priceMap = new Map<number, { amount: number; currency: string }>()
-    for (const p of prices as any[]) {
+    for (const p of prices) {
       priceMap.set(p.expenseCategoryId, {
         amount: p.amount,
         currency: p.currency,
@@ -49,14 +38,14 @@ export const computeSankey = (date: string) =>
     const nodes: Array<{ id: string; name: string; value: number; color?: string }> = []
     const links: Array<{ source: string; target: string; value: number }> = []
 
-    const salaryMonthly = (salary as any).amount as number
+    const salaryMonthly = salary.amount
     nodes.push({ id: "salary", name: "Salary", value: salaryMonthly })
 
     let totalExpenses = 0
 
-    for (const loc of locations as any[]) {
+    for (const loc of locations) {
       const locId = `loc-${loc.id}`
-      const locCategories = (categories as any[]).filter(
+      const locCategories = categories.filter(
         (c) => c.locationId === loc.id
       )
 
@@ -79,7 +68,7 @@ export const computeSankey = (date: string) =>
           const price = priceMap.get(child.id)
           if (!price) continue
 
-          let monthlyEur = Domain.toMonthly(price.amount, child.frequency as Domain.Frequency)
+          let monthlyEur = Domain.toMonthly(price.amount, child.frequency)
           if (price.currency === "PHP") monthlyEur *= phpToEur
 
           const expId = `exp-${child.id}`
@@ -105,7 +94,7 @@ export const computeSankey = (date: string) =>
           for (const child of children) {
             const price = priceMap.get(child.id)
             if (!price) continue
-            let monthlyEur = Domain.toMonthly(price.amount, child.frequency as Domain.Frequency)
+            let monthlyEur = Domain.toMonthly(price.amount, child.frequency)
             if (price.currency === "PHP") monthlyEur *= phpToEur
             links.push({
               source: grpId,
@@ -123,7 +112,7 @@ export const computeSankey = (date: string) =>
         const price = priceMap.get(leaf.id)
         if (!price) continue
 
-        let monthlyEur = Domain.toMonthly(price.amount, leaf.frequency as Domain.Frequency)
+        let monthlyEur = Domain.toMonthly(price.amount, leaf.frequency)
         if (price.currency === "PHP") monthlyEur *= phpToEur
 
         const expId = `exp-${leaf.id}`
@@ -164,8 +153,8 @@ export const computeSankey = (date: string) =>
 
     const exchangeRates: Record<string, number> = {}
     if (fxEntry) {
-      exchangeRates[`${(fxEntry as any).fromCurrency}/${(fxEntry as any).toCurrency}`] =
-        (fxEntry as any).rate
+      exchangeRates[`${fxEntry.fromCurrency}/${fxEntry.toCurrency}`] =
+        fxEntry.rate
     }
 
     return {

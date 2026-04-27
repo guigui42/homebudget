@@ -2,6 +2,15 @@ import { Schema } from "effect"
 import { Currency, Frequency } from "./domain.js"
 
 // ---------------------------------------------------------------------------
+// Error types
+// ---------------------------------------------------------------------------
+
+export class NotFoundError extends Schema.TaggedError<NotFoundError>("NotFoundError")(
+  "NotFoundError",
+  { message: Schema.String },
+) {}
+
+// ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
 
@@ -104,7 +113,7 @@ export const PriceEntry = Schema.Struct({
   id: Schema.Number,
   expenseCategoryId: Schema.Number,
   amount: Schema.Number,
-  currency: Schema.String,
+  currency: Currency,
   effectiveFrom: Schema.String,
   note: Schema.NullOr(Schema.String),
   createdAt: Schema.String,
@@ -114,7 +123,7 @@ export type PriceEntry = typeof PriceEntry.Type
 export const CreatePriceEntry = Schema.Struct({
   expenseCategoryId: Schema.Number,
   amount: Schema.Number,
-  currency: Schema.String,
+  currency: Currency,
   effectiveFrom: Schema.String,
   note: Schema.optional(Schema.String),
 })
@@ -133,8 +142,8 @@ export type UpdatePriceEntry = typeof UpdatePriceEntry.Type
 
 export const ExchangeRateEntry = Schema.Struct({
   id: Schema.Number,
-  fromCurrency: Schema.String,
-  toCurrency: Schema.String,
+  fromCurrency: Currency,
+  toCurrency: Currency,
   rate: Schema.Number,
   effectiveFrom: Schema.String,
   source: Schema.String,
@@ -143,12 +152,11 @@ export const ExchangeRateEntry = Schema.Struct({
 export type ExchangeRateEntry = typeof ExchangeRateEntry.Type
 
 export const CreateExchangeRateEntry = Schema.Struct({
-  fromCurrency: Schema.optionalWith(Schema.String, { default: () => "EUR" }),
-  toCurrency: Schema.optionalWith(Schema.String, { default: () => "PHP" }),
+  fromCurrency: Schema.optionalWith(Currency, { default: () => "EUR" as const }),
+  toCurrency: Schema.optionalWith(Currency, { default: () => "PHP" as const }),
   rate: Schema.Number,
   effectiveFrom: Schema.String,
   source: Schema.optionalWith(Schema.String, { default: () => "manual" }),
-  note: Schema.optional(Schema.String),
 })
 export type CreateExchangeRateEntry = typeof CreateExchangeRateEntry.Type
 
@@ -194,7 +202,7 @@ export const PriceEvolutionSeries = Schema.Struct({
   categoryId: Schema.Number,
   categoryName: Schema.String,
   locationName: Schema.String,
-  currency: Schema.String,
+  currency: Currency,
   points: Schema.Array(TimePoint),
 })
 
@@ -204,8 +212,8 @@ export const PriceEvolutionResponse = Schema.Struct({
 export type PriceEvolutionResponse = typeof PriceEvolutionResponse.Type
 
 export const ExchangeRateEvolutionResponse = Schema.Struct({
-  fromCurrency: Schema.String,
-  toCurrency: Schema.String,
+  fromCurrency: Currency,
+  toCurrency: Currency,
   points: Schema.Array(TimePoint),
 })
 export type ExchangeRateEvolutionResponse = typeof ExchangeRateEvolutionResponse.Type
