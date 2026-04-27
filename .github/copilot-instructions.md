@@ -23,7 +23,7 @@ HomeBudget is a personal finance tracking app. It is a **Bun + Turborepo** monor
 
 ### General
 
-- Use **ES modules** (`"type": "module"`) everywhere.
+- Use **ES modules** (`"type": "module"`) in the workspace packages.
 - Prefer `const` and arrow functions. Avoid `class` unless the framework requires it.
 - Keep files small and focused — one module per concern.
 
