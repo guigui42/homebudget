@@ -128,7 +128,7 @@ export function SankeyChart({ data, width = 900, height = 500 }: Props) {
         margin={{ top: 20, right: 200, bottom: 20, left: 200 }}
       >
         <Tooltip
-          formatter={(value: number) => [`€${value.toLocaleString()}`, "Amount"]}
+          formatter={(value) => [`€${Number(value).toLocaleString()}`, "Amount"]}
           contentStyle={{
             backgroundColor: colorScheme === "dark" ? "#2C2E33" : "#fff",
             border: "1px solid #555",

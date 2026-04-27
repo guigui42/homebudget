@@ -15,13 +15,14 @@
     "@effect/platform": "latest",
     "react": "^19",
     "react-dom": "^19",
-    "@mantine/core": "^7",
-    "@mantine/hooks": "^7",
-    "@mantine/dates": "^7",
-    "@mantine/modals": "^7",
+    "@mantine/core": "^9",
+    "@mantine/hooks": "^9",
+    "@mantine/dates": "^9",
+    "@mantine/modals": "^9",
     "dayjs": "^1",
-    "recharts": "^2",
-    "react-router-dom": "^7"
+    "recharts": "^3",
+    "react-router-dom": "^7",
+    "@tabler/icons-react": "^3"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4",
