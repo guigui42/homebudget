@@ -97,7 +97,7 @@ export const updateCategory = (id: number, input: Schemas.UpdateExpenseCategory)
       UPDATE expense_categories SET
         name       = COALESCE(${input.name ?? null}, name),
         frequency  = COALESCE(${input.frequency ?? null}, frequency),
-        color      = ${input.color !== undefined ? input.color : null},
+        color      = ${input.color !== undefined ? sql`${input.color ?? null}` : sql`color`},
         sort_order = COALESCE(${input.sortOrder ?? null}, sort_order)
         ${updateParent ? sql`, parent_id = ${input.parentId ?? null}` : sql``}
       WHERE id = ${id}
@@ -212,7 +212,7 @@ export const updatePrice = (id: number, input: Schemas.UpdatePriceEntry) =>
       UPDATE price_history SET
         amount         = COALESCE(${input.amount ?? null}, amount),
         effective_from = COALESCE(${input.effectiveFrom ? sql`${input.effectiveFrom}::date` : sql`NULL`}, effective_from),
-        note           = ${input.note !== undefined ? input.note : null}
+        note           = ${input.note !== undefined ? sql`${input.note ?? null}` : sql`note`}
       WHERE id = ${id}
       RETURNING id, expense_category_id, amount::float8, currency, effective_from::text, note, created_at::text
     `

@@ -1,9 +1,17 @@
 import { HttpApiBuilder } from "@effect/platform"
-import { Effect } from "effect"
+import { Effect, Data } from "effect"
 import { HomeBudgetApi } from "@homebudget/shared"
 import * as Repo from "../Db/repos.js"
 import { computeSankey } from "../Services/SankeyService.js"
 import { fetchLatestEurPhp } from "../Services/EcbService.js"
+
+export class SalaryNotFoundError extends Data.TaggedError("SalaryNotFoundError")<{
+  readonly message: string
+}> {}
+
+export class ExchangeRateNotFoundError extends Data.TaggedError("ExchangeRateNotFoundError")<{
+  readonly message: string
+}> {}
 
 // ---------------------------------------------------------------------------
 // Locations
@@ -55,7 +63,7 @@ export const SalaryLive = HttpApiBuilder.group(
       .handle("current", () =>
         Effect.gen(function* () {
           const entry = yield* Repo.currentSalary
-          if (!entry) return yield* Effect.fail(new Error("No salary entry found"))
+          if (!entry) return yield* Effect.fail(new SalaryNotFoundError({ message: "No salary entry found" }))
           return entry
         }) as any
       )
@@ -95,7 +103,7 @@ export const ExchangeRatesLive = HttpApiBuilder.group(
       .handle("current", () =>
         Effect.gen(function* () {
           const entry = yield* Repo.currentExchangeRate
-          if (!entry) return yield* Effect.fail(new Error("No exchange rate entry found"))
+          if (!entry) return yield* Effect.fail(new ExchangeRateNotFoundError({ message: "No exchange rate entry found" }))
           return entry
         }) as any
       )

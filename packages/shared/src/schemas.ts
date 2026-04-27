@@ -148,7 +148,6 @@ export const CreateExchangeRateEntry = Schema.Struct({
   rate: Schema.Number,
   effectiveFrom: Schema.String,
   source: Schema.optionalWith(Schema.String, { default: () => "manual" }),
-  note: Schema.optional(Schema.String),
 })
 export type CreateExchangeRateEntry = typeof CreateExchangeRateEntry.Type
 
