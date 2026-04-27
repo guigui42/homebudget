@@ -9,6 +9,8 @@ import {
   Loader,
   Center,
   Text,
+  Stack,
+  ThemeIcon,
 } from "@mantine/core"
 import {
   LineChart,
@@ -20,6 +22,11 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts"
+import {
+  IconChartLine,
+  IconArrowsExchange,
+  IconChartAreaLine,
+} from "@tabler/icons-react"
 import { categories, evolution } from "../api/client"
 import { CHART_COLORS as COLORS } from "../constants"
 import type {
@@ -35,12 +42,10 @@ export function EvolutionPage() {
   const [fxPoints, setFxPoints] = useState<TimePoint[]>([])
   const [loading, setLoading] = useState(false)
 
-  // Load categories on mount
   useEffect(() => {
     categories.listAll().then(setAllCategories)
   }, [])
 
-  // Leaf categories only (the ones with prices)
   const leafCategories = allCategories.filter((c) => !allCategories.some(ch => ch.parentId === c.id))
 
   const categoryOptions = leafCategories.map((c) => ({
@@ -68,12 +73,10 @@ export function EvolutionPage() {
     loadPrices()
   }, [loadPrices])
 
-  // Load FX on mount
   useEffect(() => {
     evolution.exchangeRate().then((r) => setFxPoints(r.points))
   }, [])
 
-  // Merge price series into a flat array for recharts
   const priceChartData = (() => {
     const dateMap = new Map<string, Record<string, number>>()
     for (const series of priceSeries) {
@@ -90,18 +93,22 @@ export function EvolutionPage() {
 
   return (
     <Container size="xl" py="lg">
-      <Title order={2} mb="lg">
+      <Title order={2} mb="xl">
         Price Evolution
       </Title>
 
-      <Tabs defaultValue="prices">
-        <Tabs.List mb="md">
-          <Tabs.Tab value="prices">Expense Prices</Tabs.Tab>
-          <Tabs.Tab value="fx">Exchange Rate</Tabs.Tab>
+      <Tabs defaultValue="prices" variant="pills" radius="md">
+        <Tabs.List mb="lg">
+          <Tabs.Tab value="prices" leftSection={<IconChartLine size={16} stroke={1.5} />}>
+            Expense Prices
+          </Tabs.Tab>
+          <Tabs.Tab value="fx" leftSection={<IconArrowsExchange size={16} stroke={1.5} />}>
+            Exchange Rate
+          </Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="prices">
-          <Group mb="md">
+          <Group mb="lg">
             <MultiSelect
               data={categoryOptions}
               value={selectedIds}
@@ -109,7 +116,7 @@ export function EvolutionPage() {
               placeholder="Select expense categories"
               searchable
               clearable
-              w={400}
+              w={450}
             />
           </Group>
 
@@ -118,13 +125,20 @@ export function EvolutionPage() {
               <Loader />
             </Center>
           ) : priceChartData.length > 0 ? (
-            <Paper withBorder p="md">
+            <Paper withBorder p="lg">
               <ResponsiveContainer width="100%" height={400}>
                 <LineChart data={priceChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-default-border)" strokeOpacity={0.5} />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "var(--mantine-color-body)",
+                      border: "1px solid var(--mantine-color-default-border)",
+                      borderRadius: 8,
+                      fontSize: 13,
+                    }}
+                  />
                   <Legend />
                   {priceSeries.map((s, i) => (
                     <Line
@@ -133,48 +147,68 @@ export function EvolutionPage() {
                       dataKey={s.categoryName}
                       stroke={COLORS[i % COLORS.length]}
                       strokeWidth={2}
-                      dot
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 5 }}
                     />
                   ))}
                 </LineChart>
               </ResponsiveContainer>
             </Paper>
           ) : (
-            <Text c="dimmed" ta="center" py="xl">
-              {selectedIds.length === 0
-                ? "Select categories to see price evolution"
-                : "No price history for selected categories"}
-            </Text>
+            <Paper withBorder p="xl">
+              <Stack align="center" gap="md" py="xl">
+                <ThemeIcon variant="light" size="xl" radius="xl" color="gray">
+                  <IconChartAreaLine size={24} stroke={1.5} />
+                </ThemeIcon>
+                <Text c="dimmed" ta="center" size="sm">
+                  {selectedIds.length === 0
+                    ? "Select categories above to see price evolution"
+                    : "No price history for selected categories"}
+                </Text>
+              </Stack>
+            </Paper>
           )}
         </Tabs.Panel>
 
         <Tabs.Panel value="fx">
-          <Paper withBorder p="md">
+          <Paper withBorder p="lg">
             {fxPoints.length > 0 ? (
               <ResponsiveContainer width="100%" height={400}>
                 <LineChart data={fxPoints}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis domain={["auto", "auto"]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-default-border)" strokeOpacity={0.5} />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis domain={["auto", "auto"]} tick={{ fontSize: 12 }} />
                   <Tooltip
-                    formatter={(value: number) =>
-                      `1 EUR = ${value.toFixed(4)} PHP`
+                    formatter={(value) =>
+                      value != null ? `1 EUR = ${Number(value).toFixed(4)} PHP` : "—"
                     }
+                    contentStyle={{
+                      backgroundColor: "var(--mantine-color-body)",
+                      border: "1px solid var(--mantine-color-default-border)",
+                      borderRadius: 8,
+                      fontSize: 13,
+                    }}
                   />
                   <Line
                     type="stepAfter"
                     dataKey="value"
                     name="EUR/PHP"
-                    stroke="#4e79a7"
+                    stroke={COLORS[0]}
                     strokeWidth={2}
-                    dot
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 5 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <Text c="dimmed" ta="center" py="xl">
-                No exchange rate history yet
-              </Text>
+              <Stack align="center" gap="md" py="xl">
+                <ThemeIcon variant="light" size="xl" radius="xl" color="gray">
+                  <IconArrowsExchange size={24} stroke={1.5} />
+                </ThemeIcon>
+                <Text c="dimmed" ta="center" size="sm">
+                  No exchange rate history yet
+                </Text>
+              </Stack>
             )}
           </Paper>
         </Tabs.Panel>

@@ -24,6 +24,22 @@ import { DatePickerInput } from "@mantine/dates"
 import { useDisclosure } from "@mantine/hooks"
 import { modals } from "@mantine/modals"
 import {
+  IconPlus,
+  IconTrash,
+  IconCheck,
+  IconX,
+  IconEdit,
+  IconChevronRight,
+  IconChevronDown,
+  IconCornerDownRight,
+  IconMapPin,
+  IconCategory,
+  IconCash,
+  IconTag,
+  IconArrowsExchange,
+  IconDownload,
+} from "@tabler/icons-react"
+import {
   locations,
   categories,
   salary,
@@ -37,6 +53,7 @@ import type {
   PriceEntry,
   ExchangeRateEntry,
 } from "../api/client"
+import { CHART_COLORS } from "../constants"
 
 // ---------------------------------------------------------------------------
 // Locations Tab
@@ -61,7 +78,7 @@ function LocationsTab() {
     <>
       <Group justify="space-between" mb="md">
         <Title order={4}>Locations</Title>
-        <Button size="xs" onClick={open}>+ Add Location</Button>
+        <Button size="xs" leftSection={<IconPlus size={14} />} onClick={open}>Add Location</Button>
       </Group>
       <Table striped withTableBorder>
         <Table.Thead>
@@ -69,7 +86,7 @@ function LocationsTab() {
             <Table.Th>Name</Table.Th>
             <Table.Th>Country</Table.Th>
             <Table.Th>Currency</Table.Th>
-            <Table.Th w={80} />
+            <Table.Th w={60} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -79,13 +96,17 @@ function LocationsTab() {
               <Table.Td>{loc.country}</Table.Td>
               <Table.Td><Badge variant="light">{loc.currency}</Badge></Table.Td>
               <Table.Td>
-                <ActionIcon variant="subtle" color="red" size="sm" onClick={() => modals.openConfirmModal({
-                  title: 'Delete location',
-                  children: <Text size="sm">Are you sure you want to delete &quot;{loc.name}&quot;? This cannot be undone.</Text>,
-                  labels: { confirm: 'Delete', cancel: 'Cancel' },
-                  confirmProps: { color: 'red' },
-                  onConfirm: async () => { try { await locations.remove(loc.id); load() } catch (e) { console.error('Failed to delete location:', e) } },
-                })}>✕</ActionIcon>
+                <Tooltip label="Delete" withArrow>
+                  <ActionIcon variant="subtle" color="red" size="sm" onClick={() => modals.openConfirmModal({
+                    title: 'Delete location',
+                    children: <Text size="sm">Are you sure you want to delete &quot;{loc.name}&quot;? This cannot be undone.</Text>,
+                    labels: { confirm: 'Delete', cancel: 'Cancel' },
+                    confirmProps: { color: 'red' },
+                    onConfirm: async () => { try { await locations.remove(loc.id); load() } catch (e) { console.error('Failed to delete location:', e) } },
+                  })}>
+                    <IconTrash size={14} stroke={1.5} />
+                  </ActionIcon>
+                </Tooltip>
               </Table.Td>
             </Table.Tr>
           ))}
@@ -97,7 +118,7 @@ function LocationsTab() {
           <TextInput label="Name" placeholder="Maison France" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <TextInput label="Country" placeholder="FR" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
           <Select label="Currency" data={["EUR", "PHP"]} value={form.currency} onChange={(v) => setForm({ ...form, currency: v ?? "EUR" })} />
-          <Button onClick={submit} disabled={!form.name}>Save</Button>
+          <Button onClick={submit} disabled={!form.name} leftSection={<IconCheck size={16} />}>Save</Button>
         </Stack>
       </Modal>
     </>
@@ -188,7 +209,7 @@ function CategoriesTab() {
 
   const DraftRow = ({ onSubmit, onCancel, indent }: { onSubmit: () => void; onCancel: () => void; indent?: boolean }) => (
     <Group gap="sm" py={8} pl={indent ? 28 : 0} wrap="wrap">
-      {indent && <Text c="dimmed">↳</Text>}
+      {indent && <IconCornerDownRight size={14} color="var(--mantine-color-dimmed)" />}
       <TextInput
         placeholder="Category name"
         size="sm"
@@ -215,14 +236,14 @@ function CategoriesTab() {
         value={draft.color}
         onChange={(v) => setDraft({ ...draft, color: v })}
         w={140}
-        swatches={["#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f", "#edc948", "#b07aa1", "#ff9da7", "#9c755f", "#bab0ac"]}
+        swatches={CHART_COLORS}
       />
       <Group gap={4} wrap="nowrap">
         <ActionIcon size="md" variant="filled" color="blue" onClick={onSubmit} disabled={!draft.name}>
-          ✓
+          <IconCheck size={16} />
         </ActionIcon>
         <ActionIcon size="md" variant="subtle" color="gray" onClick={onCancel}>
-          ✕
+          <IconX size={16} />
         </ActionIcon>
       </Group>
     </Group>
@@ -253,7 +274,7 @@ function CategoriesTab() {
                       <DraftRow onSubmit={submitEdit} onCancel={resetDraft} />
                       {children.map((ch) => (
                         <Group key={ch.id} gap="sm" py={6} pl={28} wrap="nowrap">
-                          <Text c="dimmed">↳</Text>
+                          <IconCornerDownRight size={14} color="var(--mantine-color-dimmed)" />
                           {ch.color && <ColorSwatch size={12} color={ch.color} />}
                           <Text style={{ flex: 1 }}>{ch.name}</Text>
                           <Badge size="sm" variant="outline">{ch.frequency}</Badge>
@@ -265,49 +286,56 @@ function CategoriesTab() {
 
                 return (
                   <Box key={root.id} mb={isGroup ? "xs" : 0}>
-                    {/* Root category row */}
                     <Group gap="sm" py={6} wrap="nowrap">
                       {root.color && <ColorSwatch size={14} color={root.color} />}
                       <Text fw={isGroup ? 600 : 400} style={{ flex: 1 }}>{root.name}</Text>
                       <Badge size="sm" variant="outline">{root.frequency}</Badge>
                       <Tooltip label="Add sub-category" withArrow>
-                        <ActionIcon variant="subtle" size="sm" c="dimmed" onClick={() => startAdd(loc.id, root.id)}>+</ActionIcon>
+                        <ActionIcon variant="subtle" size="sm" c="dimmed" onClick={() => startAdd(loc.id, root.id)}>
+                          <IconPlus size={14} />
+                        </ActionIcon>
                       </Tooltip>
                       <Tooltip label="Edit" withArrow>
-                        <ActionIcon variant="subtle" size="sm" onClick={() => startEdit(root)}>✎</ActionIcon>
+                        <ActionIcon variant="subtle" size="sm" onClick={() => startEdit(root)}>
+                          <IconEdit size={14} />
+                        </ActionIcon>
                       </Tooltip>
                       <Tooltip label="Delete" withArrow>
-                        <ActionIcon variant="subtle" color="red" size="sm" onClick={() => confirmDelete(root)}>✕</ActionIcon>
+                        <ActionIcon variant="subtle" color="red" size="sm" onClick={() => confirmDelete(root)}>
+                          <IconTrash size={14} />
+                        </ActionIcon>
                       </Tooltip>
                     </Group>
 
-                    {/* Children */}
                     {children.map((ch) =>
                       activeDraft?.mode === "edit" && activeDraft.id === ch.id ? (
                         <DraftRow key={ch.id} onSubmit={submitEdit} onCancel={resetDraft} indent />
                       ) : (
                         <Group key={ch.id} gap="sm" py={6} pl={28} wrap="nowrap">
-                          <Text c="dimmed">↳</Text>
+                          <IconCornerDownRight size={14} color="var(--mantine-color-dimmed)" />
                           {ch.color && <ColorSwatch size={12} color={ch.color} />}
                           <Text style={{ flex: 1 }}>{ch.name}</Text>
                           <Badge size="sm" variant="outline">{ch.frequency}</Badge>
                           <Tooltip label="Edit" withArrow>
-                            <ActionIcon variant="subtle" size="sm" onClick={() => startEdit(ch)}>✎</ActionIcon>
+                            <ActionIcon variant="subtle" size="sm" onClick={() => startEdit(ch)}>
+                              <IconEdit size={14} />
+                            </ActionIcon>
                           </Tooltip>
                           <Tooltip label="Delete" withArrow>
-                            <ActionIcon variant="subtle" color="red" size="sm" onClick={() => confirmDelete(ch)}>✕</ActionIcon>
+                            <ActionIcon variant="subtle" color="red" size="sm" onClick={() => confirmDelete(ch)}>
+                              <IconTrash size={14} />
+                            </ActionIcon>
                           </Tooltip>
                         </Group>
                       ),
                     )}
 
-                    {/* Inline add for sub-category */}
                     {activeDraft?.mode === "add" && activeDraft.parentId === root.id ? (
                       <DraftRow onSubmit={submitAdd} onCancel={resetDraft} indent />
                     ) : isGroup ? (
                       <Group pl={28} py={4}>
-                        <Button variant="subtle" size="compact-sm" c="dimmed" onClick={() => startAdd(loc.id, root.id)}>
-                          + Add sub-category
+                        <Button variant="subtle" size="compact-sm" c="dimmed" leftSection={<IconPlus size={12} />} onClick={() => startAdd(loc.id, root.id)}>
+                          Add sub-category
                         </Button>
                       </Group>
                     ) : null}
@@ -316,14 +344,13 @@ function CategoriesTab() {
               })}
             </Stack>
 
-            {/* Add root category at location level */}
             {activeDraft?.mode === "add" && activeDraft.locationId === loc.id && activeDraft.parentId === null ? (
               <Box mt="xs">
                 <DraftRow onSubmit={submitAdd} onCancel={resetDraft} />
               </Box>
             ) : (
-              <Button variant="subtle" size="compact-sm" mt="xs" c="dimmed" onClick={() => startAdd(loc.id, null)}>
-                + Add category
+              <Button variant="subtle" size="compact-sm" mt="xs" c="dimmed" leftSection={<IconPlus size={12} />} onClick={() => startAdd(loc.id, null)}>
+                Add category
               </Button>
             )}
           </Paper>
@@ -340,15 +367,15 @@ function CategoriesTab() {
 function SalaryTab() {
   const [items, setItems] = useState<SalaryEntry[]>([])
   const [opened, { open, close }] = useDisclosure(false)
-  const [form, setForm] = useState({ amount: 0, effectiveFrom: null as Date | null, note: "" })
+  const [form, setForm] = useState({ amount: 0, effectiveFrom: "" as string, note: "" })
 
   const load = useCallback(() => { salary.history().then(setItems) }, [])
   useEffect(load, [load])
 
   const submit = async () => {
-    await salary.create({ amount: form.amount, effectiveFrom: form.effectiveFrom!.toISOString().slice(0, 10), note: form.note || undefined })
+    await salary.create({ amount: form.amount, effectiveFrom: form.effectiveFrom, note: form.note || undefined })
     close()
-    setForm({ amount: 0, effectiveFrom: null, note: "" })
+    setForm({ amount: 0, effectiveFrom: "", note: "" })
     load()
   }
 
@@ -356,7 +383,7 @@ function SalaryTab() {
     <>
       <Group justify="space-between" mb="md">
         <Title order={4}>Salary History</Title>
-        <Button size="xs" onClick={open}>+ Add Entry</Button>
+        <Button size="xs" leftSection={<IconPlus size={14} />} onClick={open}>Add Entry</Button>
       </Group>
       <Table striped withTableBorder>
         <Table.Thead>
@@ -365,24 +392,28 @@ function SalaryTab() {
             <Table.Th>Amount</Table.Th>
             <Table.Th>Currency</Table.Th>
             <Table.Th>Note</Table.Th>
-            <Table.Th w={80} />
+            <Table.Th w={60} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {items.map((entry) => (
             <Table.Tr key={entry.id}>
               <Table.Td>{entry.effectiveFrom}</Table.Td>
-              <Table.Td fw={600}>{entry.amount.toLocaleString()}</Table.Td>
+              <Table.Td fw={600} style={{ fontVariantNumeric: "tabular-nums" }}>{entry.amount.toLocaleString()}</Table.Td>
               <Table.Td>{entry.currency}</Table.Td>
               <Table.Td><Text size="sm" c="dimmed">{entry.note ?? ""}</Text></Table.Td>
               <Table.Td>
-                <ActionIcon variant="subtle" color="red" size="sm" onClick={() => modals.openConfirmModal({
-                  title: 'Delete salary entry',
-                  children: <Text size="sm">Are you sure you want to delete the salary entry from {entry.effectiveFrom}? This cannot be undone.</Text>,
-                  labels: { confirm: 'Delete', cancel: 'Cancel' },
-                  confirmProps: { color: 'red' },
-                  onConfirm: async () => { try { await salary.remove(entry.id); load() } catch (e) { console.error('Failed to delete salary entry:', e) } },
-                })}>✕</ActionIcon>
+                <Tooltip label="Delete" withArrow>
+                  <ActionIcon variant="subtle" color="red" size="sm" onClick={() => modals.openConfirmModal({
+                    title: 'Delete salary entry',
+                    children: <Text size="sm">Are you sure you want to delete the salary entry from {entry.effectiveFrom}? This cannot be undone.</Text>,
+                    labels: { confirm: 'Delete', cancel: 'Cancel' },
+                    confirmProps: { color: 'red' },
+                    onConfirm: async () => { try { await salary.remove(entry.id); load() } catch (e) { console.error('Failed to delete salary entry:', e) } },
+                  })}>
+                    <IconTrash size={14} stroke={1.5} />
+                  </ActionIcon>
+                </Tooltip>
               </Table.Td>
             </Table.Tr>
           ))}
@@ -392,9 +423,9 @@ function SalaryTab() {
       <Modal opened={opened} onClose={close} title="Add Salary Entry">
         <Stack>
           <NumberInput label="Monthly Amount (EUR)" value={form.amount} onChange={(v) => setForm({ ...form, amount: Number(v) })} min={0} />
-          <DatePickerInput label="Effective From" value={form.effectiveFrom} onChange={(v) => setForm({ ...form, effectiveFrom: v })} clearable />
+          <DatePickerInput label="Effective From" value={form.effectiveFrom} onChange={(v) => setForm({ ...form, effectiveFrom: v ?? "" })} clearable />
           <TextInput label="Note (optional)" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
-          <Button onClick={submit} disabled={!form.amount || !form.effectiveFrom}>Save</Button>
+          <Button onClick={submit} disabled={!form.amount || !form.effectiveFrom} leftSection={<IconCheck size={16} />}>Save</Button>
         </Stack>
       </Modal>
     </>
@@ -411,7 +442,7 @@ function PricesTab() {
   const [allPrices, setAllPrices] = useState<Record<number, PriceEntry[]>>({})
   const [expandedCat, setExpandedCat] = useState<number | null>(null)
   const [addingTo, setAddingTo] = useState<number | null>(null)
-  const [addForm, setAddForm] = useState({ amount: 0, effectiveFrom: null as Date | null, note: "" })
+  const [addForm, setAddForm] = useState({ amount: 0, effectiveFrom: "" as string, note: "" })
 
   const loadPrices = useCallback(async (catList: ExpenseCategory[]) => {
     const leaves = catList.filter((c) => !catList.some((ch) => ch.parentId === c.id))
@@ -436,12 +467,12 @@ function PricesTab() {
   const startAdd = (catId: number) => {
     setAddingTo(catId)
     setExpandedCat(catId)
-    setAddForm({ amount: 0, effectiveFrom: null, note: "" })
+    setAddForm({ amount: 0, effectiveFrom: "", note: "" })
   }
 
   const cancelAdd = () => {
     setAddingTo(null)
-    setAddForm({ amount: 0, effectiveFrom: null, note: "" })
+    setAddForm({ amount: 0, effectiveFrom: "", note: "" })
   }
 
   const submitAdd = async () => {
@@ -452,11 +483,11 @@ function PricesTab() {
       expenseCategoryId: catId,
       amount: addForm.amount,
       currency,
-      effectiveFrom: addForm.effectiveFrom!.toISOString().slice(0, 10),
+      effectiveFrom: addForm.effectiveFrom,
       note: addForm.note || undefined,
     })
     setAddingTo(null)
-    setAddForm({ amount: 0, effectiveFrom: null, note: "" })
+    setAddForm({ amount: 0, effectiveFrom: "", note: "" })
     const updated = await prices.history(catId)
     setAllPrices((prev) => ({ ...prev, [catId]: updated }))
   }
@@ -489,24 +520,29 @@ function PricesTab() {
       <Box>
         <Group
           gap="sm" py={6} pl={indent ? 28 : 0} wrap="nowrap"
-          style={{ cursor: "pointer" }}
+          style={{ cursor: "pointer", borderRadius: "var(--mantine-radius-sm)" }}
           onClick={() => toggleExpand(cat.id)}
         >
-          {indent && <Text c="dimmed">↳</Text>}
+          {indent && <IconCornerDownRight size={14} color="var(--mantine-color-dimmed)" />}
           {cat.color && <ColorSwatch size={12} color={cat.color} />}
           <Text style={{ flex: 1 }}>{cat.name}</Text>
           {latest ? (
             <>
-              <Text fw={600}>{latest.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} {latest.currency}</Text>
+              <Text fw={600} style={{ fontVariantNumeric: "tabular-nums" }}>{latest.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} {latest.currency}</Text>
               <Text size="sm" c="dimmed">since {latest.effectiveFrom}</Text>
             </>
           ) : (
             <Text size="sm" c="dimmed" fs="italic">no price set</Text>
           )}
           <Tooltip label="Add price" withArrow>
-            <ActionIcon variant="subtle" size="sm" onClick={(e) => { e.stopPropagation(); startAdd(cat.id) }}>+</ActionIcon>
+            <ActionIcon variant="subtle" size="sm" onClick={(e) => { e.stopPropagation(); startAdd(cat.id) }}>
+              <IconPlus size={14} />
+            </ActionIcon>
           </Tooltip>
-          <Text size="xs" c="dimmed">{isExpanded ? "▾" : "▸"}</Text>
+          {isExpanded
+            ? <IconChevronDown size={14} color="var(--mantine-color-dimmed)" />
+            : <IconChevronRight size={14} color="var(--mantine-color-dimmed)" />
+          }
         </Group>
 
         {isExpanded && (
@@ -516,9 +552,13 @@ function PricesTab() {
                 {history.map((entry) => (
                   <Group key={entry.id} gap="sm" py={4} wrap="nowrap">
                     <Text size="sm" c="dimmed" w={100}>{entry.effectiveFrom}</Text>
-                    <Text size="sm" fw={500}>{entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} {entry.currency}</Text>
+                    <Text size="sm" fw={500} style={{ fontVariantNumeric: "tabular-nums" }}>{entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} {entry.currency}</Text>
                     <Text size="sm" c="dimmed" style={{ flex: 1 }}>{entry.note ?? ""}</Text>
-                    <ActionIcon variant="subtle" color="red" size="sm" onClick={() => confirmDeletePrice(entry)}>✕</ActionIcon>
+                    <Tooltip label="Delete" withArrow>
+                      <ActionIcon variant="subtle" color="red" size="sm" onClick={() => confirmDeletePrice(entry)}>
+                        <IconTrash size={14} stroke={1.5} />
+                      </ActionIcon>
+                    </Tooltip>
                   </Group>
                 ))}
               </Stack>
@@ -542,7 +582,7 @@ function PricesTab() {
                   placeholder="Effective from"
                   size="sm"
                   value={addForm.effectiveFrom}
-                  onChange={(v) => setAddForm({ ...addForm, effectiveFrom: v })}
+                  onChange={(v) => setAddForm({ ...addForm, effectiveFrom: v ?? "" })}
                   w={160}
                 />
                 <TextInput
@@ -557,13 +597,17 @@ function PricesTab() {
                   }}
                 />
                 <Group gap={4} wrap="nowrap">
-                  <ActionIcon size="md" variant="filled" color="blue" onClick={submitAdd} disabled={!addForm.amount || !addForm.effectiveFrom}>✓</ActionIcon>
-                  <ActionIcon size="md" variant="subtle" color="gray" onClick={cancelAdd}>✕</ActionIcon>
+                  <ActionIcon size="md" variant="filled" color="blue" onClick={submitAdd} disabled={!addForm.amount || !addForm.effectiveFrom}>
+                    <IconCheck size={16} />
+                  </ActionIcon>
+                  <ActionIcon size="md" variant="subtle" color="gray" onClick={cancelAdd}>
+                    <IconX size={16} />
+                  </ActionIcon>
                 </Group>
               </Group>
             ) : (
-              <Button variant="subtle" size="compact-sm" c="dimmed" mt="xs" onClick={() => startAdd(cat.id)}>
-                + Add price
+              <Button variant="subtle" size="compact-sm" c="dimmed" mt="xs" leftSection={<IconPlus size={12} />} onClick={() => startAdd(cat.id)}>
+                Add price
               </Button>
             )}
           </Box>
@@ -627,16 +671,16 @@ function PricesTab() {
 function ExchangeRatesTab() {
   const [items, setItems] = useState<ExchangeRateEntry[]>([])
   const [opened, { open, close }] = useDisclosure(false)
-  const [form, setForm] = useState({ rate: 0, effectiveFrom: null as Date | null })
+  const [form, setForm] = useState({ rate: 0, effectiveFrom: "" as string })
   const [fetching, setFetching] = useState(false)
 
   const load = useCallback(() => { exchangeRates.history().then(setItems) }, [])
   useEffect(load, [load])
 
   const submit = async () => {
-    await exchangeRates.create({ rate: form.rate, effectiveFrom: form.effectiveFrom!.toISOString().slice(0, 10) })
+    await exchangeRates.create({ rate: form.rate, effectiveFrom: form.effectiveFrom })
     close()
-    setForm({ rate: 0, effectiveFrom: null })
+    setForm({ rate: 0, effectiveFrom: "" })
     load()
   }
 
@@ -655,10 +699,10 @@ function ExchangeRatesTab() {
       <Group justify="space-between" mb="md">
         <Title order={4}>Exchange Rate History (EUR → PHP)</Title>
         <Group>
-          <Button size="xs" variant="light" onClick={fetchEcb} loading={fetching}>
+          <Button size="xs" variant="light" leftSection={<IconDownload size={14} />} onClick={fetchEcb} loading={fetching}>
             Fetch ECB Rate
           </Button>
-          <Button size="xs" onClick={open}>+ Manual Entry</Button>
+          <Button size="xs" leftSection={<IconPlus size={14} />} onClick={open}>Manual Entry</Button>
         </Group>
       </Group>
       <Table striped withTableBorder>
@@ -667,23 +711,27 @@ function ExchangeRatesTab() {
             <Table.Th>Effective From</Table.Th>
             <Table.Th>Rate (1 EUR =)</Table.Th>
             <Table.Th>Source</Table.Th>
-            <Table.Th w={80} />
+            <Table.Th w={60} />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {items.map((entry) => (
             <Table.Tr key={entry.id}>
               <Table.Td>{entry.effectiveFrom}</Table.Td>
-              <Table.Td fw={600}>{entry.rate.toFixed(4)} PHP</Table.Td>
+              <Table.Td fw={600} style={{ fontVariantNumeric: "tabular-nums" }}>{entry.rate.toFixed(4)} PHP</Table.Td>
               <Table.Td><Badge size="sm" variant="light" color={entry.source === "ecb" ? "blue" : "gray"}>{entry.source}</Badge></Table.Td>
               <Table.Td>
-                <ActionIcon variant="subtle" color="red" size="sm" onClick={() => modals.openConfirmModal({
-                  title: 'Delete exchange rate',
-                  children: <Text size="sm">Are you sure you want to delete the exchange rate from {entry.effectiveFrom}? This cannot be undone.</Text>,
-                  labels: { confirm: 'Delete', cancel: 'Cancel' },
-                  confirmProps: { color: 'red' },
-                  onConfirm: async () => { try { await exchangeRates.remove(entry.id); load() } catch (e) { console.error('Failed to delete exchange rate:', e) } },
-                })}>✕</ActionIcon>
+                <Tooltip label="Delete" withArrow>
+                  <ActionIcon variant="subtle" color="red" size="sm" onClick={() => modals.openConfirmModal({
+                    title: 'Delete exchange rate',
+                    children: <Text size="sm">Are you sure you want to delete the exchange rate from {entry.effectiveFrom}? This cannot be undone.</Text>,
+                    labels: { confirm: 'Delete', cancel: 'Cancel' },
+                    confirmProps: { color: 'red' },
+                    onConfirm: async () => { try { await exchangeRates.remove(entry.id); load() } catch (e) { console.error('Failed to delete exchange rate:', e) } },
+                  })}>
+                    <IconTrash size={14} stroke={1.5} />
+                  </ActionIcon>
+                </Tooltip>
               </Table.Td>
             </Table.Tr>
           ))}
@@ -693,8 +741,8 @@ function ExchangeRatesTab() {
       <Modal opened={opened} onClose={close} title="Add Exchange Rate">
         <Stack>
           <NumberInput label="Rate (1 EUR = X PHP)" value={form.rate} onChange={(v) => setForm({ ...form, rate: Number(v) })} min={0} decimalScale={6} />
-          <DatePickerInput label="Effective From" value={form.effectiveFrom} onChange={(v) => setForm({ ...form, effectiveFrom: v })} clearable />
-          <Button onClick={submit} disabled={!form.rate || !form.effectiveFrom}>Save</Button>
+          <DatePickerInput label="Effective From" value={form.effectiveFrom} onChange={(v) => setForm({ ...form, effectiveFrom: v ?? "" })} clearable />
+          <Button onClick={submit} disabled={!form.rate || !form.effectiveFrom} leftSection={<IconCheck size={16} />}>Save</Button>
         </Stack>
       </Modal>
     </>
@@ -708,17 +756,17 @@ function ExchangeRatesTab() {
 export function SettingsPage() {
   return (
     <Container size="xl" py="lg">
-      <Title order={2} mb="lg">
+      <Title order={2} mb="xl">
         Settings
       </Title>
 
-      <Tabs defaultValue="locations">
-        <Tabs.List mb="md">
-          <Tabs.Tab value="locations">Locations</Tabs.Tab>
-          <Tabs.Tab value="categories">Categories</Tabs.Tab>
-          <Tabs.Tab value="salary">Salary</Tabs.Tab>
-          <Tabs.Tab value="prices">Prices</Tabs.Tab>
-          <Tabs.Tab value="exchangeRates">Exchange Rates</Tabs.Tab>
+      <Tabs defaultValue="locations" variant="pills" radius="md">
+        <Tabs.List mb="lg">
+          <Tabs.Tab value="locations" leftSection={<IconMapPin size={16} stroke={1.5} />}>Locations</Tabs.Tab>
+          <Tabs.Tab value="categories" leftSection={<IconCategory size={16} stroke={1.5} />}>Categories</Tabs.Tab>
+          <Tabs.Tab value="salary" leftSection={<IconCash size={16} stroke={1.5} />}>Salary</Tabs.Tab>
+          <Tabs.Tab value="prices" leftSection={<IconTag size={16} stroke={1.5} />}>Prices</Tabs.Tab>
+          <Tabs.Tab value="exchangeRates" leftSection={<IconArrowsExchange size={16} stroke={1.5} />}>Exchange Rates</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="locations"><LocationsTab /></Tabs.Panel>
