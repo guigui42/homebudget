@@ -29,8 +29,30 @@ function fmt(n: number) {
   return `€${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 }
 
+function toIsoDate(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function fromIsoDate(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return null
+  const [, year, month, day] = match
+  return new Date(Number(year), Number(month) - 1, Number(day))
+}
+
+function pickerValueToIso(value: Date | string): string {
+  if (typeof value === "string") {
+    const match = /^(\d{4}-\d{2}-\d{2})/.exec(value)
+    return match ? match[0] : toIsoDate(new Date(value))
+  }
+  return toIsoDate(value)
+}
+
 function todayStr() {
-  return new Date().toISOString().slice(0, 10)
+  return toIsoDate(new Date())
 }
 
 function StatCard({
@@ -116,8 +138,8 @@ export function SankeyPage() {
         <Title order={2}>Budget Overview</Title>
         <DatePickerInput
           label="As of date"
-          value={dateStr}
-          onChange={(v) => setDateStr(v ?? todayStr())}
+          value={fromIsoDate(dateStr)}
+          onChange={(v) => setDateStr(v ? pickerValueToIso(v) : todayStr())}
           clearable={false}
           w={200}
         />

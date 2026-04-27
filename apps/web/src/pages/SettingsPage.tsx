@@ -55,6 +55,28 @@ import type {
 } from "../api/client"
 import { CHART_COLORS } from "../constants"
 
+function toIsoDate(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function fromIsoDate(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return null
+  const [, year, month, day] = match
+  return new Date(Number(year), Number(month) - 1, Number(day))
+}
+
+function pickerValueToIso(value: Date | string): string {
+  if (typeof value === "string") {
+    const match = /^(\d{4}-\d{2}-\d{2})/.exec(value)
+    return match ? match[0] : toIsoDate(new Date(value))
+  }
+  return toIsoDate(value)
+}
+
 // ---------------------------------------------------------------------------
 // Locations Tab
 // ---------------------------------------------------------------------------
@@ -423,7 +445,12 @@ function SalaryTab() {
       <Modal opened={opened} onClose={close} title="Add Salary Entry">
         <Stack>
           <NumberInput label="Monthly Amount (EUR)" value={form.amount} onChange={(v) => setForm({ ...form, amount: Number(v) })} min={0} />
-          <DatePickerInput label="Effective From" value={form.effectiveFrom} onChange={(v) => setForm({ ...form, effectiveFrom: v ?? "" })} clearable />
+          <DatePickerInput
+            label="Effective From"
+            value={fromIsoDate(form.effectiveFrom)}
+            onChange={(v) => setForm({ ...form, effectiveFrom: v ? pickerValueToIso(v) : "" })}
+            clearable
+          />
           <TextInput label="Note (optional)" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
           <Button onClick={submit} disabled={!form.amount || !form.effectiveFrom} leftSection={<IconCheck size={16} />}>Save</Button>
         </Stack>
@@ -581,8 +608,8 @@ function PricesTab() {
                 <DatePickerInput
                   placeholder="Effective from"
                   size="sm"
-                  value={addForm.effectiveFrom}
-                  onChange={(v) => setAddForm({ ...addForm, effectiveFrom: v ?? "" })}
+                  value={fromIsoDate(addForm.effectiveFrom)}
+                  onChange={(v) => setAddForm({ ...addForm, effectiveFrom: v ? pickerValueToIso(v) : "" })}
                   w={160}
                 />
                 <TextInput
@@ -741,7 +768,12 @@ function ExchangeRatesTab() {
       <Modal opened={opened} onClose={close} title="Add Exchange Rate">
         <Stack>
           <NumberInput label="Rate (1 EUR = X PHP)" value={form.rate} onChange={(v) => setForm({ ...form, rate: Number(v) })} min={0} decimalScale={6} />
-          <DatePickerInput label="Effective From" value={form.effectiveFrom} onChange={(v) => setForm({ ...form, effectiveFrom: v ?? "" })} clearable />
+          <DatePickerInput
+            label="Effective From"
+            value={fromIsoDate(form.effectiveFrom)}
+            onChange={(v) => setForm({ ...form, effectiveFrom: v ? pickerValueToIso(v) : "" })}
+            clearable
+          />
           <Button onClick={submit} disabled={!form.rate || !form.effectiveFrom} leftSection={<IconCheck size={16} />}>Save</Button>
         </Stack>
       </Modal>
