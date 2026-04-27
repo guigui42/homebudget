@@ -69,6 +69,7 @@ const SalaryApi = HttpApiGroup.make("salary")
   .add(
     HttpApiEndpoint.get("current", "/api/salary/current")
       .addSuccess(S.SalaryEntry)
+      .addError(S.NotFoundError, { status: 404 })
   )
   .add(
     HttpApiEndpoint.post("create", "/api/salary")
@@ -118,6 +119,7 @@ const ExchangeRatesApi = HttpApiGroup.make("exchangeRates")
   .add(
     HttpApiEndpoint.get("current", "/api/exchange-rates/current")
       .addSuccess(S.ExchangeRateEntry)
+      .addError(S.NotFoundError, { status: 404 })
   )
   .add(
     HttpApiEndpoint.post("create", "/api/exchange-rates")

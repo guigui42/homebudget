@@ -1,6 +1,26 @@
 import { Effect } from "effect"
 import { SqlClient } from "@effect/sql"
-import type { Schemas } from "@homebudget/shared"
+import type { Schemas, Domain } from "@homebudget/shared"
+
+// ---------------------------------------------------------------------------
+// Query result types for JOINed queries
+// ---------------------------------------------------------------------------
+
+export interface PriceEvolutionRow {
+  expenseCategoryId: number
+  categoryName: string
+  locationName: string
+  currency: Domain.Currency
+  amount: number
+  effectiveFrom: string
+}
+
+export interface ExchangeRateEvolutionRow {
+  fromCurrency: Domain.Currency
+  toCurrency: Domain.Currency
+  rate: number
+  effectiveFrom: string
+}
 
 // ---------------------------------------------------------------------------
 // Locations
@@ -8,7 +28,7 @@ import type { Schemas } from "@homebudget/shared"
 
 export const listLocations = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
-  return yield* sql`
+  return yield* sql<Schemas.Location>`
     SELECT id, name, country, currency, sort_order, created_at::text
     FROM locations ORDER BY sort_order
   `
@@ -17,7 +37,7 @@ export const listLocations = Effect.gen(function* () {
 export const createLocation = (input: Schemas.CreateLocation) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    const rows = yield* sql`
+    const rows = yield* sql<Schemas.Location>`
       INSERT INTO locations (name, country, currency, sort_order)
       VALUES (${input.name}, ${input.country}, ${input.currency}, ${input.sortOrder})
       RETURNING id, name, country, currency, sort_order, created_at::text
@@ -28,7 +48,7 @@ export const createLocation = (input: Schemas.CreateLocation) =>
 export const updateLocation = (id: number, input: Schemas.UpdateLocation) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    const rows = yield* sql`
+    const rows = yield* sql<Schemas.Location>`
       UPDATE locations SET
         name          = COALESCE(${input.name ?? null}, name),
         country       = COALESCE(${input.country ?? null}, country),
@@ -53,7 +73,7 @@ export const removeLocation = (id: number) =>
 export const listCategoriesByLocation = (locationId: number) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    return yield* sql`
+    return yield* sql<Schemas.ExpenseCategory>`
       SELECT id, location_id, parent_id, name, frequency, color, sort_order, created_at::text
       FROM expense_categories
       WHERE location_id = ${locationId}
@@ -63,7 +83,7 @@ export const listCategoriesByLocation = (locationId: number) =>
 
 export const listAllCategories = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
-  return yield* sql`
+  return yield* sql<Schemas.ExpenseCategory>`
     SELECT id, location_id, parent_id, name, frequency, color, sort_order, created_at::text
     FROM expense_categories
     ORDER BY location_id, sort_order
@@ -73,7 +93,7 @@ export const listAllCategories = Effect.gen(function* () {
 export const createCategory = (input: Schemas.CreateExpenseCategory) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    const rows = yield* sql`
+    const rows = yield* sql<Schemas.ExpenseCategory>`
       INSERT INTO expense_categories (location_id, parent_id, name, frequency, color, sort_order)
       VALUES (
         ${input.locationId},
@@ -93,7 +113,7 @@ export const updateCategory = (id: number, input: Schemas.UpdateExpenseCategory)
     const sql = yield* SqlClient.SqlClient
     // parent_id needs special handling: undefined = don't change, null = set to null
     const updateParent = input.parentId !== undefined
-    const rows = yield* sql`
+    const rows = yield* sql<Schemas.ExpenseCategory>`
       UPDATE expense_categories SET
         name       = COALESCE(${input.name ?? null}, name),
         frequency  = COALESCE(${input.frequency ?? null}, frequency),
@@ -118,7 +138,7 @@ export const removeCategory = (id: number) =>
 
 export const salaryHistory = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
-  return yield* sql`
+  return yield* sql<Schemas.SalaryEntry>`
     SELECT id, amount::float8, currency, effective_from::text, note, created_at::text
     FROM salary_history
     ORDER BY effective_from DESC
@@ -127,7 +147,7 @@ export const salaryHistory = Effect.gen(function* () {
 
 export const currentSalary = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
-  const rows = yield* sql`
+  const rows = yield* sql<Schemas.SalaryEntry>`
     SELECT id, amount::float8, currency, effective_from::text, note, created_at::text
     FROM salary_history
     WHERE effective_from <= CURRENT_DATE
@@ -140,7 +160,7 @@ export const currentSalary = Effect.gen(function* () {
 export const salaryAtDate = (date: string) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    const rows = yield* sql`
+    const rows = yield* sql<Schemas.SalaryEntry>`
       SELECT id, amount::float8, currency, effective_from::text, note, created_at::text
       FROM salary_history
       WHERE effective_from <= ${date}::date
@@ -153,7 +173,7 @@ export const salaryAtDate = (date: string) =>
 export const createSalary = (input: Schemas.CreateSalaryEntry) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    const rows = yield* sql`
+    const rows = yield* sql<Schemas.SalaryEntry>`
       INSERT INTO salary_history (amount, currency, effective_from, note)
       VALUES (${input.amount}, ${input.currency}, ${input.effectiveFrom}::date, ${input.note ?? null})
       RETURNING id, amount::float8, currency, effective_from::text, note, created_at::text
@@ -174,7 +194,7 @@ export const removeSalary = (id: number) =>
 export const priceHistory = (categoryId: number) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    return yield* sql`
+    return yield* sql<Schemas.PriceEntry>`
       SELECT id, expense_category_id, amount::float8, currency, effective_from::text, note, created_at::text
       FROM price_history
       WHERE expense_category_id = ${categoryId}
@@ -185,7 +205,7 @@ export const priceHistory = (categoryId: number) =>
 export const pricesAtDate = (date: string) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    return yield* sql`
+    return yield* sql<Schemas.PriceEntry>`
       SELECT DISTINCT ON (expense_category_id)
         id, expense_category_id, amount::float8, currency, effective_from::text, note, created_at::text
       FROM price_history
@@ -197,7 +217,7 @@ export const pricesAtDate = (date: string) =>
 export const createPrice = (input: Schemas.CreatePriceEntry) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    const rows = yield* sql`
+    const rows = yield* sql<Schemas.PriceEntry>`
       INSERT INTO price_history (expense_category_id, amount, currency, effective_from, note)
       VALUES (${input.expenseCategoryId}, ${input.amount}, ${input.currency}, ${input.effectiveFrom}::date, ${input.note ?? null})
       RETURNING id, expense_category_id, amount::float8, currency, effective_from::text, note, created_at::text
@@ -208,7 +228,7 @@ export const createPrice = (input: Schemas.CreatePriceEntry) =>
 export const updatePrice = (id: number, input: Schemas.UpdatePriceEntry) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    const rows = yield* sql`
+    const rows = yield* sql<Schemas.PriceEntry>`
       UPDATE price_history SET
         amount         = COALESCE(${input.amount ?? null}, amount),
         effective_from = COALESCE(${input.effectiveFrom ? sql`${input.effectiveFrom}::date` : sql`NULL`}, effective_from),
@@ -231,7 +251,7 @@ export const removePrice = (id: number) =>
 
 export const exchangeRateHistory = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
-  return yield* sql`
+  return yield* sql<Schemas.ExchangeRateEntry>`
     SELECT id, from_currency, to_currency, rate::float8, effective_from::text, source, created_at::text
     FROM exchange_rate_history
     ORDER BY effective_from DESC
@@ -240,7 +260,7 @@ export const exchangeRateHistory = Effect.gen(function* () {
 
 export const currentExchangeRate = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
-  const rows = yield* sql`
+  const rows = yield* sql<Schemas.ExchangeRateEntry>`
     SELECT id, from_currency, to_currency, rate::float8, effective_from::text, source, created_at::text
     FROM exchange_rate_history
     WHERE effective_from <= CURRENT_DATE
@@ -253,7 +273,7 @@ export const currentExchangeRate = Effect.gen(function* () {
 export const exchangeRateAtDate = (date: string) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    const rows = yield* sql`
+    const rows = yield* sql<Schemas.ExchangeRateEntry>`
       SELECT id, from_currency, to_currency, rate::float8, effective_from::text, source, created_at::text
       FROM exchange_rate_history
       WHERE effective_from <= ${date}::date
@@ -266,7 +286,7 @@ export const exchangeRateAtDate = (date: string) =>
 export const createExchangeRate = (input: Schemas.CreateExchangeRateEntry) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    const rows = yield* sql`
+    const rows = yield* sql<Schemas.ExchangeRateEntry>`
       INSERT INTO exchange_rate_history (from_currency, to_currency, rate, effective_from, source)
       VALUES (${input.fromCurrency}, ${input.toCurrency}, ${input.rate}, ${input.effectiveFrom}::date, ${input.source})
       RETURNING id, from_currency, to_currency, rate::float8, effective_from::text, source, created_at::text
@@ -287,7 +307,7 @@ export const removeExchangeRate = (id: number) =>
 export const priceEvolution = (categoryIds: ReadonlyArray<number>, from?: string, to?: string) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    return yield* sql`
+    return yield* sql<PriceEvolutionRow>`
       SELECT
         ph.expense_category_id,
         ec.name AS category_name,
@@ -298,7 +318,7 @@ export const priceEvolution = (categoryIds: ReadonlyArray<number>, from?: string
       FROM price_history ph
       JOIN expense_categories ec ON ec.id = ph.expense_category_id
       JOIN locations l ON l.id = ec.location_id
-      WHERE ph.expense_category_id = ANY(${categoryIds as any})
+      WHERE ph.expense_category_id = ANY(${[...categoryIds]})
       ${from ? sql`AND ph.effective_from >= ${from}::date` : sql``}
       ${to ? sql`AND ph.effective_from <= ${to}::date` : sql``}
       ORDER BY ph.expense_category_id, ph.effective_from
@@ -308,7 +328,7 @@ export const priceEvolution = (categoryIds: ReadonlyArray<number>, from?: string
 export const exchangeRateEvolution = (from?: string, to?: string) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    return yield* sql`
+    return yield* sql<ExchangeRateEvolutionRow>`
       SELECT from_currency, to_currency, rate::float8, effective_from::text
       FROM exchange_rate_history
       ${from ? sql`WHERE effective_from >= ${from}::date` : sql``}

@@ -1,3 +1,4 @@
+import { HttpClient } from "@effect/platform"
 import { Effect, Data } from "effect"
 
 export class EcbFetchError extends Data.TaggedError("EcbFetchError")<{
@@ -20,21 +21,20 @@ interface FrankfurterResponse {
 }
 
 export const fetchLatestEurPhp = Effect.gen(function* () {
-  const response = yield* Effect.tryPromise({
-    try: () => fetch("https://api.frankfurter.dev/v1/latest?base=EUR&symbols=PHP"),
-    catch: (cause) => new EcbFetchError({ message: `Network error: ${cause}` }),
-  })
+  const client = yield* HttpClient.HttpClient
+  const response = yield* client.get("https://api.frankfurter.dev/v1/latest?base=EUR&symbols=PHP").pipe(
+    Effect.mapError((cause) => new EcbFetchError({ message: `Network error: ${cause}` }))
+  )
 
-  if (!response.ok) {
+  if (response.status >= 400) {
     return yield* Effect.fail(
       new EcbFetchError({ message: `Frankfurter API returned ${response.status}` })
     )
   }
 
-  const data = yield* Effect.tryPromise({
-    try: () => response.json() as Promise<FrankfurterResponse>,
-    catch: (cause) => new EcbParseError({ message: `Failed to parse response: ${cause}` }),
-  })
+  const data = (yield* response.json.pipe(
+    Effect.mapError(() => new EcbParseError({ message: "Failed to parse exchange rate response" }))
+  )) as FrankfurterResponse
 
   const rate = data.rates["PHP"]
   if (rate === undefined) {
