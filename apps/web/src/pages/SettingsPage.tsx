@@ -55,6 +55,12 @@ import type {
 } from "../api/client"
 import { CHART_COLORS } from "../constants"
 
+/** Safely parse a NumberInput value to a finite number, or return undefined. */
+function parseFinite(v: number | string): number | undefined {
+  const n = typeof v === "number" ? v : Number(v)
+  return Number.isFinite(n) ? n : undefined
+}
+
 function toIsoDate(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, "0")
@@ -395,7 +401,9 @@ function SalaryTab() {
   useEffect(load, [load])
 
   const submit = async () => {
-    await salary.create({ amount: Number(form.amount), effectiveFrom: form.effectiveFrom, note: form.note || undefined })
+    const amount = parseFinite(form.amount)
+    if (amount == null) return
+    await salary.create({ amount, effectiveFrom: form.effectiveFrom, note: form.note || undefined })
     close()
     setForm({ amount: 0, effectiveFrom: "", note: "" })
     load()
@@ -452,7 +460,7 @@ function SalaryTab() {
             clearable
           />
           <TextInput label="Note (optional)" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
-          <Button onClick={submit} disabled={!form.amount || !form.effectiveFrom} leftSection={<IconCheck size={16} />}>Save</Button>
+          <Button onClick={submit} disabled={parseFinite(form.amount) == null || !form.effectiveFrom} leftSection={<IconCheck size={16} />}>Save</Button>
         </Stack>
       </Modal>
     </>
@@ -504,11 +512,13 @@ function PricesTab() {
 
   const submitAdd = async () => {
     if (!addingTo) return
+    const amount = parseFinite(addForm.amount)
+    if (amount == null) return
     const catId = addingTo
     const currency = locs.find((l) => l.id === cats.find((c) => c.id === catId)?.locationId)?.currency ?? "EUR"
     await prices.create({
       expenseCategoryId: catId,
-      amount: Number(addForm.amount),
+      amount,
       currency,
       effectiveFrom: addForm.effectiveFrom,
       note: addForm.note || undefined,
@@ -598,7 +608,7 @@ function PricesTab() {
                 <NumberInput
                   placeholder={`Amount (${currency})`}
                   size="sm"
-                  value={addForm.amount || ""}
+                  value={addForm.amount}
                   onChange={(v) => setAddForm({ ...addForm, amount: v })}
                   min={0}
                   decimalScale={2}
@@ -619,12 +629,12 @@ function PricesTab() {
                   onChange={(e) => setAddForm({ ...addForm, note: e.target.value })}
                   style={{ flex: 1, minWidth: 120 }}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && addForm.amount && addForm.effectiveFrom) submitAdd()
+                    if (e.key === "Enter" && parseFinite(addForm.amount) != null && addForm.effectiveFrom) submitAdd()
                     if (e.key === "Escape") cancelAdd()
                   }}
                 />
                 <Group gap={4} wrap="nowrap">
-                  <ActionIcon size="md" variant="filled" color="blue" onClick={submitAdd} disabled={!addForm.amount || !addForm.effectiveFrom}>
+                  <ActionIcon size="md" variant="filled" color="blue" onClick={submitAdd} disabled={parseFinite(addForm.amount) == null || !addForm.effectiveFrom}>
                     <IconCheck size={16} />
                   </ActionIcon>
                   <ActionIcon size="md" variant="subtle" color="gray" onClick={cancelAdd}>
@@ -705,7 +715,9 @@ function ExchangeRatesTab() {
   useEffect(load, [load])
 
   const submit = async () => {
-    await exchangeRates.create({ rate: Number(form.rate), effectiveFrom: form.effectiveFrom })
+    const rate = parseFinite(form.rate)
+    if (rate == null) return
+    await exchangeRates.create({ rate, effectiveFrom: form.effectiveFrom })
     close()
     setForm({ rate: 0, effectiveFrom: "" })
     load()
@@ -774,7 +786,7 @@ function ExchangeRatesTab() {
             onChange={(v) => setForm({ ...form, effectiveFrom: v ? pickerValueToIso(v) : "" })}
             clearable
           />
-          <Button onClick={submit} disabled={!form.rate || !form.effectiveFrom} leftSection={<IconCheck size={16} />}>Save</Button>
+          <Button onClick={submit} disabled={parseFinite(form.rate) == null || !form.effectiveFrom} leftSection={<IconCheck size={16} />}>Save</Button>
         </Stack>
       </Modal>
     </>
