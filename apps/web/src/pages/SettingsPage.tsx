@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
+import { formatNumber } from "../utils/format"
 import {
   Container,
   Title,
@@ -429,7 +430,7 @@ function SalaryTab() {
           {items.map((entry) => (
             <Table.Tr key={entry.id}>
               <Table.Td>{entry.effectiveFrom}</Table.Td>
-              <Table.Td fw={600} style={{ fontVariantNumeric: "tabular-nums" }}>{entry.amount.toLocaleString()}</Table.Td>
+              <Table.Td fw={600} style={{ fontVariantNumeric: "tabular-nums" }}>{formatNumber(entry.amount)}</Table.Td>
               <Table.Td>{entry.currency}</Table.Td>
               <Table.Td><Text size="sm" c="dimmed">{entry.note ?? ""}</Text></Table.Td>
               <Table.Td>
@@ -565,7 +566,7 @@ function PricesTab() {
           <Text style={{ flex: 1 }}>{cat.name}</Text>
           {latest ? (
             <>
-              <Text fw={600} style={{ fontVariantNumeric: "tabular-nums" }}>{latest.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} {latest.currency}</Text>
+              <Text fw={600} style={{ fontVariantNumeric: "tabular-nums" }}>{formatNumber(latest.amount, 2)} {latest.currency}</Text>
               <Text size="sm" c="dimmed">since {latest.effectiveFrom}</Text>
             </>
           ) : (
@@ -589,7 +590,7 @@ function PricesTab() {
                 {history.map((entry) => (
                   <Group key={entry.id} gap="sm" py={4} wrap="nowrap">
                     <Text size="sm" c="dimmed" w={100}>{entry.effectiveFrom}</Text>
-                    <Text size="sm" fw={500} style={{ fontVariantNumeric: "tabular-nums" }}>{entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} {entry.currency}</Text>
+                    <Text size="sm" fw={500} style={{ fontVariantNumeric: "tabular-nums" }}>{formatNumber(entry.amount, 2)} {entry.currency}</Text>
                     <Text size="sm" c="dimmed" style={{ flex: 1 }}>{entry.note ?? ""}</Text>
                     <Tooltip label="Delete" withArrow>
                       <ActionIcon variant="subtle" color="red" size="sm" onClick={() => confirmDeletePrice(entry)}>

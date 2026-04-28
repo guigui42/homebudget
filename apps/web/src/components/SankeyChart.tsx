@@ -7,6 +7,7 @@ import {
 } from "recharts"
 import { useComputedColorScheme } from "@mantine/core"
 import { CHART_COLORS as COLORS } from "../constants"
+import { formatEur } from "../utils/format"
 import type { SankeyData as SankeyApiData } from "../api/client"
 
 // Map API data to recharts Sankey format
@@ -37,7 +38,7 @@ function SankeyNode(props: any) {
   const labelX = isRightSide ? x - 8 : x + width + 8
   const anchor = isRightSide ? "end" : "start"
 
-  const label = `${payload.name}  €${payload.value.toLocaleString()}`
+  const label = `${payload.name}  ${formatEur(payload.value)}`
 
   return (
     <Layer key={`node-${index}`}>
@@ -128,7 +129,7 @@ export function SankeyChart({ data, width = 900, height = 500 }: Props) {
         margin={{ top: 20, right: 200, bottom: 20, left: 200 }}
       >
         <Tooltip
-          formatter={(value) => value != null ? [`€${Number(value).toLocaleString()}`, "Amount"] : ["—", "Amount"]}
+          formatter={(value) => value != null ? [formatEur(Number(value)), "Amount"] : ["—", "Amount"]}
           contentStyle={{
             backgroundColor: colorScheme === "dark" ? "#2C2E33" : "#fff",
             border: "1px solid #555",
