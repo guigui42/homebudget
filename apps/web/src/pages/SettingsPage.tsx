@@ -55,6 +55,12 @@ import type {
 } from "../api/client"
 import { CHART_COLORS } from "../constants"
 
+/** Safely parse a NumberInput value to a finite number, or return undefined. */
+function parseFinite(v: number | string): number | undefined {
+  const n = typeof v === "number" ? v : Number(v)
+  return Number.isFinite(n) ? n : undefined
+}
+
 function toIsoDate(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, "0")
@@ -389,13 +395,15 @@ function CategoriesTab() {
 function SalaryTab() {
   const [items, setItems] = useState<SalaryEntry[]>([])
   const [opened, { open, close }] = useDisclosure(false)
-  const [form, setForm] = useState({ amount: 0, effectiveFrom: "" as string, note: "" })
+  const [form, setForm] = useState({ amount: 0 as number | string, effectiveFrom: "" as string, note: "" })
 
   const load = useCallback(() => { salary.history().then(setItems) }, [])
   useEffect(load, [load])
 
   const submit = async () => {
-    await salary.create({ amount: form.amount, effectiveFrom: form.effectiveFrom, note: form.note || undefined })
+    const amount = parseFinite(form.amount)
+    if (amount == null) return
+    await salary.create({ amount, effectiveFrom: form.effectiveFrom, note: form.note || undefined })
     close()
     setForm({ amount: 0, effectiveFrom: "", note: "" })
     load()
@@ -444,7 +452,7 @@ function SalaryTab() {
 
       <Modal opened={opened} onClose={close} title="Add Salary Entry">
         <Stack>
-          <NumberInput label="Monthly Amount (EUR)" value={form.amount} onChange={(v) => setForm({ ...form, amount: Number(v) })} min={0} />
+          <NumberInput label="Monthly Amount (EUR)" value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} min={0} decimalScale={2} />
           <DatePickerInput
             label="Effective From"
             value={fromIsoDate(form.effectiveFrom)}
@@ -452,7 +460,7 @@ function SalaryTab() {
             clearable
           />
           <TextInput label="Note (optional)" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
-          <Button onClick={submit} disabled={!form.amount || !form.effectiveFrom} leftSection={<IconCheck size={16} />}>Save</Button>
+          <Button onClick={submit} disabled={parseFinite(form.amount) == null || !form.effectiveFrom} leftSection={<IconCheck size={16} />}>Save</Button>
         </Stack>
       </Modal>
     </>
@@ -469,7 +477,7 @@ function PricesTab() {
   const [allPrices, setAllPrices] = useState<Record<number, PriceEntry[]>>({})
   const [expandedCat, setExpandedCat] = useState<number | null>(null)
   const [addingTo, setAddingTo] = useState<number | null>(null)
-  const [addForm, setAddForm] = useState({ amount: 0, effectiveFrom: "" as string, note: "" })
+  const [addForm, setAddForm] = useState({ amount: 0 as number | string, effectiveFrom: "" as string, note: "" })
 
   const loadPrices = useCallback(async (catList: ExpenseCategory[]) => {
     const leaves = catList.filter((c) => !catList.some((ch) => ch.parentId === c.id))
@@ -504,11 +512,13 @@ function PricesTab() {
 
   const submitAdd = async () => {
     if (!addingTo) return
+    const amount = parseFinite(addForm.amount)
+    if (amount == null) return
     const catId = addingTo
     const currency = locs.find((l) => l.id === cats.find((c) => c.id === catId)?.locationId)?.currency ?? "EUR"
     await prices.create({
       expenseCategoryId: catId,
-      amount: addForm.amount,
+      amount,
       currency,
       effectiveFrom: addForm.effectiveFrom,
       note: addForm.note || undefined,
@@ -598,8 +608,8 @@ function PricesTab() {
                 <NumberInput
                   placeholder={`Amount (${currency})`}
                   size="sm"
-                  value={addForm.amount || ""}
-                  onChange={(v) => setAddForm({ ...addForm, amount: Number(v) })}
+                  value={addForm.amount}
+                  onChange={(v) => setAddForm({ ...addForm, amount: v })}
                   min={0}
                   decimalScale={2}
                   style={{ flex: 1, minWidth: 120 }}
@@ -619,12 +629,12 @@ function PricesTab() {
                   onChange={(e) => setAddForm({ ...addForm, note: e.target.value })}
                   style={{ flex: 1, minWidth: 120 }}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && addForm.amount && addForm.effectiveFrom) submitAdd()
+                    if (e.key === "Enter" && parseFinite(addForm.amount) != null && addForm.effectiveFrom) submitAdd()
                     if (e.key === "Escape") cancelAdd()
                   }}
                 />
                 <Group gap={4} wrap="nowrap">
-                  <ActionIcon size="md" variant="filled" color="blue" onClick={submitAdd} disabled={!addForm.amount || !addForm.effectiveFrom}>
+                  <ActionIcon size="md" variant="filled" color="blue" onClick={submitAdd} disabled={parseFinite(addForm.amount) == null || !addForm.effectiveFrom}>
                     <IconCheck size={16} />
                   </ActionIcon>
                   <ActionIcon size="md" variant="subtle" color="gray" onClick={cancelAdd}>
@@ -698,14 +708,16 @@ function PricesTab() {
 function ExchangeRatesTab() {
   const [items, setItems] = useState<ExchangeRateEntry[]>([])
   const [opened, { open, close }] = useDisclosure(false)
-  const [form, setForm] = useState({ rate: 0, effectiveFrom: "" as string })
+  const [form, setForm] = useState({ rate: 0 as number | string, effectiveFrom: "" as string })
   const [fetching, setFetching] = useState(false)
 
   const load = useCallback(() => { exchangeRates.history().then(setItems) }, [])
   useEffect(load, [load])
 
   const submit = async () => {
-    await exchangeRates.create({ rate: form.rate, effectiveFrom: form.effectiveFrom })
+    const rate = parseFinite(form.rate)
+    if (rate == null) return
+    await exchangeRates.create({ rate, effectiveFrom: form.effectiveFrom })
     close()
     setForm({ rate: 0, effectiveFrom: "" })
     load()
@@ -767,14 +779,14 @@ function ExchangeRatesTab() {
 
       <Modal opened={opened} onClose={close} title="Add Exchange Rate">
         <Stack>
-          <NumberInput label="Rate (1 EUR = X PHP)" value={form.rate} onChange={(v) => setForm({ ...form, rate: Number(v) })} min={0} decimalScale={6} />
+          <NumberInput label="Rate (1 EUR = X PHP)" value={form.rate} onChange={(v) => setForm({ ...form, rate: v })} min={0} decimalScale={6} />
           <DatePickerInput
             label="Effective From"
             value={fromIsoDate(form.effectiveFrom)}
             onChange={(v) => setForm({ ...form, effectiveFrom: v ? pickerValueToIso(v) : "" })}
             clearable
           />
-          <Button onClick={submit} disabled={!form.rate || !form.effectiveFrom} leftSection={<IconCheck size={16} />}>Save</Button>
+          <Button onClick={submit} disabled={parseFinite(form.rate) == null || !form.effectiveFrom} leftSection={<IconCheck size={16} />}>Save</Button>
         </Stack>
       </Modal>
     </>
