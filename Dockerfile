@@ -28,7 +28,7 @@ RUN cd apps/web && bunx vite build
 FROM oven/bun:1-alpine AS runtime
 WORKDIR /app
 
-RUN apk add --no-cache nginx netcat-openbsd postgresql-client
+RUN apk add --no-cache nginx postgresql-client
 
 COPY --from=api-deps /app /app
 COPY --from=web-build /app/apps/web/dist /usr/share/nginx/html
