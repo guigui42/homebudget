@@ -1,5 +1,32 @@
 # Copilot Instructions for HomeBudget
+### Caveman Mode
+Terse like caveman. Technical substance exact. Only fluff die.
+Drop: articles, filler (just/really/basically), pleasantries, hedging.
+Fragments OK. Short synonyms. Code unchanged.
+Pattern: [thing] [action] [reason]. [next step].
+ACTIVE EVERY RESPONSE. No revert after many turns. No filler drift.
+Code/commits/PRs: normal. Off: "stop caveman" / "normal mode".
 
+
+# Snip - CLI Token Optimizer
+
+When executing shell commands, always prefix them with the snip proxy to reduce token usage.
+
+## Usage
+
+Instead of running commands directly:
+```
+git status
+go test ./...
+```
+
+Prefix with snip:
+```
+snip -- git status
+snip -- go test ./...
+```
+
+This applies to all shell commands. Snip filters verbose output while preserving errors and essential information.
 ## Project overview
 
 HomeBudget is a personal finance tracking app. It is a **Bun + Turborepo** monorepo with three workspaces:
