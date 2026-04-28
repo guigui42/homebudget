@@ -8,6 +8,12 @@ services:
       POSTGRES_PASSWORD: homebudget
     ports:
       - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U homebudget -d homebudget"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./apps/api/sql:/docker-entrypoint-initdb.d:ro
@@ -22,7 +28,8 @@ services:
     ports:
       - "8080:80"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata:
