@@ -25,8 +25,10 @@ import {
 import { SankeyChart } from "../components/SankeyChart"
 import { sankey, type SankeyData } from "../api/client"
 
+import { formatEur } from "../utils/format"
+
 function fmt(n: number) {
-  return `€${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+  return formatEur(n)
 }
 
 function toIsoDate(date: Date): string {
