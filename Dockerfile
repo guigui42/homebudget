@@ -28,10 +28,11 @@ RUN cd apps/web && bunx vite build
 FROM oven/bun:1-alpine AS runtime
 WORKDIR /app
 
-RUN apk add --no-cache nginx
+RUN apk add --no-cache nginx postgresql-client
 
 COPY --from=api-deps /app /app
 COPY --from=web-build /app/apps/web/dist /usr/share/nginx/html
+COPY apps/api/sql /app/sql
 COPY docker/nginx.single.conf /etc/nginx/http.d/default.conf
 COPY docker/start-single-image.sh /usr/local/bin/start-single-image.sh
 

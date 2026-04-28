@@ -1,6 +1,30 @@
 #!/bin/sh
 set -eu
 
+# Wait for Postgres to accept connections before starting the API
+if [ -n "${DATABASE_URL:-}" ]; then
+  echo "Waiting for Postgres to accept connections..."
+  for i in $(seq 1 30); do
+    if psql "$DATABASE_URL" -c 'SELECT 1' >/dev/null 2>&1; then
+      echo "Postgres is ready."
+      break
+    fi
+    if [ "$i" -eq 30 ]; then
+      echo "ERROR: Postgres not ready after 30s" >&2
+      exit 1
+    fi
+    sleep 1
+  done
+
+  # Run idempotent schema migrations
+  echo "Running database migrations..."
+  for f in /app/sql/*.sql; do
+    echo "  Applying $f"
+    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction -f "$f"
+  done
+  echo "Migrations complete."
+fi
+
 bun run /app/apps/api/src/main.ts &
 api_pid=$!
 
