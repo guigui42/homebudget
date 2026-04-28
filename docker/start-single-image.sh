@@ -17,6 +17,14 @@ if [ -n "${DATABASE_URL:-}" ]; then
     fi
     sleep 1
   done
+
+  # Run idempotent schema migrations
+  echo "Running database migrations..."
+  for f in /app/sql/*.sql; do
+    echo "  Applying $f"
+    psql "$DATABASE_URL" -f "$f"
+  done
+  echo "Migrations complete."
 fi
 
 bun run /app/apps/api/src/main.ts &
