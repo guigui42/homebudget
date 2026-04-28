@@ -10,19 +10,20 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@homebudget/shared": "workspace:*",
-    "effect": "^3",
     "@effect/platform": "latest",
+    "@homebudget/shared": "workspace:*",
+    "@mantine/core": "^9",
+    "@mantine/dates": "^9",
+    "@mantine/hooks": "^9",
+    "@mantine/modals": "^9",
+    "@mantine/notifications": "^9.1.1",
+    "@tabler/icons-react": "^3",
+    "dayjs": "^1",
+    "effect": "^3",
     "react": "^19",
     "react-dom": "^19",
-    "@mantine/core": "^9",
-    "@mantine/hooks": "^9",
-    "@mantine/dates": "^9",
-    "@mantine/modals": "^9",
-    "dayjs": "^1",
-    "recharts": "^3",
     "react-router-dom": "^7",
-    "@tabler/icons-react": "^3"
+    "recharts": "^3"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4",
