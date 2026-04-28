@@ -389,13 +389,13 @@ function CategoriesTab() {
 function SalaryTab() {
   const [items, setItems] = useState<SalaryEntry[]>([])
   const [opened, { open, close }] = useDisclosure(false)
-  const [form, setForm] = useState({ amount: 0, effectiveFrom: "" as string, note: "" })
+  const [form, setForm] = useState({ amount: 0 as number | string, effectiveFrom: "" as string, note: "" })
 
   const load = useCallback(() => { salary.history().then(setItems) }, [])
   useEffect(load, [load])
 
   const submit = async () => {
-    await salary.create({ amount: form.amount, effectiveFrom: form.effectiveFrom, note: form.note || undefined })
+    await salary.create({ amount: Number(form.amount), effectiveFrom: form.effectiveFrom, note: form.note || undefined })
     close()
     setForm({ amount: 0, effectiveFrom: "", note: "" })
     load()
@@ -444,7 +444,7 @@ function SalaryTab() {
 
       <Modal opened={opened} onClose={close} title="Add Salary Entry">
         <Stack>
-          <NumberInput label="Monthly Amount (EUR)" value={form.amount} onChange={(v) => setForm({ ...form, amount: Number(v) })} min={0} />
+          <NumberInput label="Monthly Amount (EUR)" value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} min={0} decimalScale={2} />
           <DatePickerInput
             label="Effective From"
             value={fromIsoDate(form.effectiveFrom)}
@@ -469,7 +469,7 @@ function PricesTab() {
   const [allPrices, setAllPrices] = useState<Record<number, PriceEntry[]>>({})
   const [expandedCat, setExpandedCat] = useState<number | null>(null)
   const [addingTo, setAddingTo] = useState<number | null>(null)
-  const [addForm, setAddForm] = useState({ amount: 0, effectiveFrom: "" as string, note: "" })
+  const [addForm, setAddForm] = useState({ amount: 0 as number | string, effectiveFrom: "" as string, note: "" })
 
   const loadPrices = useCallback(async (catList: ExpenseCategory[]) => {
     const leaves = catList.filter((c) => !catList.some((ch) => ch.parentId === c.id))
@@ -508,7 +508,7 @@ function PricesTab() {
     const currency = locs.find((l) => l.id === cats.find((c) => c.id === catId)?.locationId)?.currency ?? "EUR"
     await prices.create({
       expenseCategoryId: catId,
-      amount: addForm.amount,
+      amount: Number(addForm.amount),
       currency,
       effectiveFrom: addForm.effectiveFrom,
       note: addForm.note || undefined,
@@ -599,7 +599,7 @@ function PricesTab() {
                   placeholder={`Amount (${currency})`}
                   size="sm"
                   value={addForm.amount || ""}
-                  onChange={(v) => setAddForm({ ...addForm, amount: Number(v) })}
+                  onChange={(v) => setAddForm({ ...addForm, amount: v })}
                   min={0}
                   decimalScale={2}
                   style={{ flex: 1, minWidth: 120 }}
@@ -698,14 +698,14 @@ function PricesTab() {
 function ExchangeRatesTab() {
   const [items, setItems] = useState<ExchangeRateEntry[]>([])
   const [opened, { open, close }] = useDisclosure(false)
-  const [form, setForm] = useState({ rate: 0, effectiveFrom: "" as string })
+  const [form, setForm] = useState({ rate: 0 as number | string, effectiveFrom: "" as string })
   const [fetching, setFetching] = useState(false)
 
   const load = useCallback(() => { exchangeRates.history().then(setItems) }, [])
   useEffect(load, [load])
 
   const submit = async () => {
-    await exchangeRates.create({ rate: form.rate, effectiveFrom: form.effectiveFrom })
+    await exchangeRates.create({ rate: Number(form.rate), effectiveFrom: form.effectiveFrom })
     close()
     setForm({ rate: 0, effectiveFrom: "" })
     load()
@@ -767,7 +767,7 @@ function ExchangeRatesTab() {
 
       <Modal opened={opened} onClose={close} title="Add Exchange Rate">
         <Stack>
-          <NumberInput label="Rate (1 EUR = X PHP)" value={form.rate} onChange={(v) => setForm({ ...form, rate: Number(v) })} min={0} decimalScale={6} />
+          <NumberInput label="Rate (1 EUR = X PHP)" value={form.rate} onChange={(v) => setForm({ ...form, rate: v })} min={0} decimalScale={6} />
           <DatePickerInput
             label="Effective From"
             value={fromIsoDate(form.effectiveFrom)}
