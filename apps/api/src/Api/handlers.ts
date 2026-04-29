@@ -40,6 +40,9 @@ export const CategoriesLive = HttpApiBuilder.group(
         Repo.updateCategory(path.id, payload).pipe(Effect.orDie)
       )
       .handle("remove", ({ path }) => Repo.removeCategory(path.id).pipe(Effect.orDie))
+      .handle("reorder", ({ payload }) =>
+        Repo.reorderCategories(payload.items).pipe(Effect.orDie)
+      )
 )
 
 // ---------------------------------------------------------------------------

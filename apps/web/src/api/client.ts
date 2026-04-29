@@ -71,6 +71,8 @@ export const categories = {
     request<ExpenseCategory>(`/categories/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   remove: (id: number) =>
     request<void>(`/categories/${id}`, { method: "DELETE" }),
+  reorder: (items: Array<{ id: number; sortOrder: number; parentId: number | null }>) =>
+    request<ExpenseCategory[]>("/categories/reorder", { method: "POST", body: JSON.stringify({ items }) }),
 }
 
 // ---------------------------------------------------------------------------
