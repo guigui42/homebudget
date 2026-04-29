@@ -1,0 +1,8 @@
+/* Respect reduced-motion preference for chart animations */
+@media (prefers-reduced-motion: reduce) {
+  .recharts-wrapper *,
+  .recharts-surface * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

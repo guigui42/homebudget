@@ -21,40 +21,17 @@ import {
   IconPigMoney,
   IconCurrencyEuro,
   IconAlertTriangle,
+  IconTrendingUp,
+  IconTrendingDown,
 } from "@tabler/icons-react"
 import { SankeyChart } from "../components/SankeyChart"
 import { sankey, type SankeyData } from "../api/client"
+import { fromIsoDate, pickerValueToIso, todayStr } from "../utils/date.js"
 
 import { formatEur } from "../utils/format"
 
 function fmt(n: number) {
   return formatEur(n)
-}
-
-function toIsoDate(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, "0")
-  const day = String(date.getDate()).padStart(2, "0")
-  return `${year}-${month}-${day}`
-}
-
-function fromIsoDate(value: string): Date | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
-  if (!match) return null
-  const [, year, month, day] = match
-  return new Date(Number(year), Number(month) - 1, Number(day))
-}
-
-function pickerValueToIso(value: Date | string): string {
-  if (typeof value === "string") {
-    const match = /^(\d{4}-\d{2}-\d{2})/.exec(value)
-    return match ? match[0] : toIsoDate(new Date(value))
-  }
-  return toIsoDate(value)
-}
-
-function todayStr() {
-  return toIsoDate(new Date())
 }
 
 function StatCard({
@@ -148,7 +125,7 @@ export function SankeyPage() {
       </Group>
 
       {error && (
-        <Paper withBorder p="md" mb="lg" bg="var(--mantine-color-red-light)">
+        <Paper withBorder p="md" mb="lg" bg="var(--mantine-color-red-light)" role="alert">
           <Group gap="sm">
             <IconAlertTriangle size={20} color="var(--mantine-color-red-filled)" />
             <Text c="red" fw={500}>{error}</Text>
@@ -176,7 +153,7 @@ export function SankeyPage() {
             <StatCard
               label={data.savingsMonthly >= 0 ? "Savings" : "Deficit"}
               value={fmt(Math.abs(data.savingsMonthly))}
-              icon={IconPigMoney}
+              icon={data.savingsMonthly >= 0 ? IconTrendingUp : IconTrendingDown}
               color={data.savingsMonthly >= 0 ? "teal" : "red"}
               valueColor={data.savingsMonthly >= 0 ? "teal" : "red"}
             />
@@ -188,7 +165,14 @@ export function SankeyPage() {
             />
           </SimpleGrid>
 
-          <Paper ref={chartRef} withBorder p="md" style={{ overflowX: 'auto' }}>
+          <Paper
+            ref={chartRef}
+            withBorder
+            p="md"
+            style={{ overflowX: 'auto' }}
+            aria-label={`Budget flow diagram: €${data.salaryMonthly.toLocaleString()} income, €${data.expensesMonthly.toLocaleString()} expenses, €${Math.abs(data.savingsMonthly).toLocaleString()} ${data.savingsMonthly >= 0 ? 'savings' : 'deficit'}`}
+            role="img"
+          >
             <SankeyChart data={data} width={Math.max(600, (chartWidth || 900) - 32)} height={Math.max(400, data.nodes.length * 40)} />
           </Paper>
 

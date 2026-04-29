@@ -1,5 +1,7 @@
 import "@mantine/core/styles.css"
 import "@mantine/dates/styles.css"
+import "@mantine/notifications/styles.css"
+import "./global.css"
 import {
   MantineProvider,
   AppShell,
@@ -14,6 +16,7 @@ import {
 } from "@mantine/core"
 import { useDisclosure } from "@mantine/hooks"
 import { ModalsProvider } from "@mantine/modals"
+import { Notifications } from "@mantine/notifications"
 import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom"
 import {
   IconLayoutDashboard,
@@ -147,6 +150,7 @@ export function App() {
 
   return (
     <MantineProvider defaultColorScheme="auto" theme={theme}>
+      <Notifications position="top-right" autoClose={4000} />
       <ModalsProvider>
       <BrowserRouter>
         <AppShell

@@ -112,11 +112,11 @@ export function SankeyChart({ data, width = 900, height = 500 }: Props) {
   const textColor = colorScheme === "dark" ? "#c9cdd1" : "#333"
 
   if (chartData.nodes.length === 0) {
-    return <div style={{ padding: 40, textAlign: "center", color: "#888" }}>No data — add salary and expenses to see the diagram</div>
+    return <div style={{ padding: 40, textAlign: "center", color: "var(--mantine-color-dimmed)" }}>No data — add salary and expenses to see the diagram</div>
   }
 
   return (
-    <div style={{ color: textColor }}>
+    <div style={{ color: textColor }} role="img" aria-label={`Budget flow: ${data.nodes.length} categories across income and expenses`}>
       <Sankey
         width={width}
         height={height}
@@ -131,8 +131,8 @@ export function SankeyChart({ data, width = 900, height = 500 }: Props) {
         <Tooltip
           formatter={(value) => value != null ? [formatEur(Number(value)), "Amount"] : ["—", "Amount"]}
           contentStyle={{
-            backgroundColor: colorScheme === "dark" ? "#2C2E33" : "#fff",
-            border: "1px solid #555",
+            backgroundColor: "var(--mantine-color-body)",
+            border: "1px solid var(--mantine-color-default-border)",
             borderRadius: 8,
             color: textColor,
           }}

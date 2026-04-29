@@ -110,6 +110,7 @@ export function EvolutionPage() {
         <Tabs.Panel value="prices">
           <Group mb="lg">
             <MultiSelect
+              label="Expense categories"
               data={categoryOptions}
               value={selectedIds}
               onChange={setSelectedIds}
@@ -125,10 +126,10 @@ export function EvolutionPage() {
               <Loader />
             </Center>
           ) : priceChartData.length > 0 ? (
-            <Paper withBorder p="lg">
+            <Paper withBorder p="lg" role="img" aria-label={`Price evolution chart showing ${priceSeries.map(s => s.categoryName).join(', ')}`}>
               <ResponsiveContainer width="100%" height={400}>
                 <LineChart data={priceChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-default-border)" strokeOpacity={0.5} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-default-border)" strokeOpacity={0.3} />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip
@@ -171,11 +172,11 @@ export function EvolutionPage() {
         </Tabs.Panel>
 
         <Tabs.Panel value="fx">
-          <Paper withBorder p="lg">
+          <Paper withBorder p="lg" role="img" aria-label="EUR to PHP exchange rate history chart">
             {fxPoints.length > 0 ? (
               <ResponsiveContainer width="100%" height={400}>
                 <LineChart data={fxPoints}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-default-border)" strokeOpacity={0.5} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-default-border)" strokeOpacity={0.3} />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                   <YAxis domain={["auto", "auto"]} tick={{ fontSize: 12 }} />
                   <Tooltip
