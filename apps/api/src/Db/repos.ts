@@ -132,6 +132,51 @@ export const removeCategory = (id: number) =>
     yield* sql`DELETE FROM expense_categories WHERE id = ${id}`
   })
 
+export const reorderCategories = (items: ReadonlyArray<{ id: number; sortOrder: number; parentId: number | null }>) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+
+    if (items.length === 0) {
+      return yield* sql<Schemas.ExpenseCategory>`
+        SELECT id, location_id, parent_id, name, frequency, color, sort_order, created_at::text
+        FROM expense_categories ORDER BY location_id, sort_order
+      `
+    }
+
+    // Validate: if parentId is set, parent must be in the same location_id as the child
+    const ids = items.map((i) => i.id)
+    const parentIds = items.filter((i) => i.parentId !== null).map((i) => i.parentId!)
+    if (parentIds.length > 0) {
+      const conflicts = yield* sql`
+        SELECT c.id, c.location_id AS child_loc, p.location_id AS parent_loc
+        FROM expense_categories c
+        JOIN expense_categories p ON p.id = ANY(${parentIds}::int[])
+        WHERE c.id = ANY(${ids}::int[])
+          AND c.location_id != p.location_id
+      `
+      if (conflicts.length > 0) {
+        return yield* Effect.fail(new Error("Cannot reparent category to a different location"))
+      }
+    }
+
+    // Single atomic UPDATE via CTE with VALUES list
+    const values = items.map((i) => `(${i.id}, ${i.sortOrder}, ${i.parentId === null ? "NULL" : i.parentId})`).join(", ")
+
+    yield* sql.unsafe(`
+      UPDATE expense_categories AS ec
+      SET sort_order = v.sort_order,
+          parent_id  = v.parent_id
+      FROM (VALUES ${values}) AS v(id, sort_order, parent_id)
+      WHERE ec.id = v.id
+    `)
+
+    return yield* sql<Schemas.ExpenseCategory>`
+      SELECT id, location_id, parent_id, name, frequency, color, sort_order, created_at::text
+      FROM expense_categories
+      ORDER BY location_id, sort_order
+    `
+  })
+
 // ---------------------------------------------------------------------------
 // Salary
 // ---------------------------------------------------------------------------

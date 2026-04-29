@@ -56,6 +56,11 @@ const CategoriesApi = HttpApiGroup.make("categories")
     HttpApiEndpoint.del("remove", "/api/categories/:id")
       .setPath(S.IdParam)
   )
+  .add(
+    HttpApiEndpoint.post("reorder", "/api/categories/reorder")
+      .setPayload(S.ReorderCategories)
+      .addSuccess(Schema.Array(S.ExpenseCategory))
+  )
 
 // ---------------------------------------------------------------------------
 // Salary

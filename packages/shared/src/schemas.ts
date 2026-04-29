@@ -83,6 +83,18 @@ export const UpdateExpenseCategory = Schema.Struct({
 })
 export type UpdateExpenseCategory = typeof UpdateExpenseCategory.Type
 
+export const ReorderCategoryItem = Schema.Struct({
+  id: Schema.Number,
+  sortOrder: Schema.Number,
+  parentId: Schema.NullOr(Schema.Number),
+})
+export type ReorderCategoryItem = typeof ReorderCategoryItem.Type
+
+export const ReorderCategories = Schema.Struct({
+  items: Schema.Array(ReorderCategoryItem),
+})
+export type ReorderCategories = typeof ReorderCategories.Type
+
 // ---------------------------------------------------------------------------
 // Salary
 // ---------------------------------------------------------------------------
