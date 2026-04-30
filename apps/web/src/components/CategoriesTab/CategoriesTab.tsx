@@ -845,7 +845,12 @@ function PriceExpansion({
         )}
 
       {addingPriceTo === cat.id ? (
-          <Group gap="sm" py={8} wrap="wrap" mt="xs">
+          <Group gap="sm" py={8} wrap="wrap" mt="xs"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && parseFinite(priceForm.amount) != null && priceForm.effectiveFrom) onSubmitAddPrice()
+              if (e.key === "Escape") onCancelAddPrice()
+            }}
+          >
             <NumberInput
               placeholder={`Amount (${currency})`}
               size="sm"
@@ -871,10 +876,6 @@ function PriceExpansion({
               value={priceForm.note}
               onChange={(e) => onPriceFormChange({ ...priceForm, note: e.target.value })}
               style={{ flex: 1, minWidth: 120 }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && parseFinite(priceForm.amount) != null && priceForm.effectiveFrom) onSubmitAddPrice()
-                if (e.key === "Escape") onCancelAddPrice()
-              }}
             />
             <Group gap={4} wrap="nowrap">
               <ActionIcon size="md" variant="filled" color="blue" onClick={onSubmitAddPrice} disabled={parseFinite(priceForm.amount) == null || !priceForm.effectiveFrom} aria-label="Save">
