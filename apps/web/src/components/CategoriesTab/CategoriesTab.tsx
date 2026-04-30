@@ -794,74 +794,92 @@ function PriceExpansion({
   const basePl = isChild ? 56 : 28
 
   return (
-    <Box pl={basePl} pb="xs">
-      {history.length > 0 ? (
-        <Stack gap={0}>
-          {history.map((entry) => (
-            <Group key={entry.id} gap="sm" py={4} wrap="nowrap">
-              <Text size="sm" c="dimmed" w={100}>{entry.effectiveFrom}</Text>
-              <Text size="sm" fw={500} style={{ fontVariantNumeric: "tabular-nums" }}>
-                {formatNumber(entry.amount, 2)} {entry.currency}
-              </Text>
-              <Text size="sm" c="dimmed" style={{ flex: 1 }}>{entry.note ?? ""}</Text>
-              <Tooltip label="Delete" withArrow>
-                <ActionIcon variant="subtle" color="red" size="md" aria-label="Delete price entry" onClick={() => onDeletePrice(entry)}>
-                  <IconTrash size={14} stroke={1.5} />
-                </ActionIcon>
-              </Tooltip>
-            </Group>
-          ))}
-        </Stack>
-      ) : (
-        <Text size="sm" c="dimmed" py={4}>No price entries yet</Text>
-      )}
+    <Box
+      pl={basePl}
+      pb="sm"
+      ml={isChild ? 28 : 0}
+      style={{
+        borderLeft: "2px solid var(--mantine-color-blue-4)",
+        borderRadius: "0 0 0 var(--mantine-radius-sm)",
+      }}
+    >
+      <Box pl="sm" pt={4}>
+        <Text size="xs" fw={600} c="blue.4" tt="uppercase" mb={6}>
+          Price History
+        </Text>
+
+        {history.length > 0 ? (
+          <Stack gap={0}>
+            {history.map((entry, i) => (
+              <Group key={entry.id} gap="sm" py={5} wrap="nowrap"
+                style={{
+                  opacity: i === 0 ? 1 : 0.7,
+                }}
+              >
+                <Text size="sm" c="dimmed" w={100} style={{ fontVariantNumeric: "tabular-nums" }}>{entry.effectiveFrom}</Text>
+                <Text size="sm" fw={i === 0 ? 600 : 400} style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {formatNumber(entry.amount, 2)} {entry.currency}
+                </Text>
+                <Text size="sm" c="dimmed" style={{ flex: 1 }}>{entry.note ?? ""}</Text>
+                <Tooltip label="Delete" withArrow>
+                  <ActionIcon variant="subtle" color="red" size="sm" aria-label="Delete price entry" onClick={() => onDeletePrice(entry)}>
+                    <IconTrash size={14} stroke={1.5} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+            ))}
+          </Stack>
+        ) : (
+          <Text size="sm" c="dimmed" py={4} fs="italic">No price entries yet — add one below</Text>
+        )}
 
       {addingPriceTo === cat.id ? (
-        <Group gap="sm" py={8} wrap="wrap" mt="xs">
-          <NumberInput
-            placeholder={`Amount (${currency})`}
-            size="sm"
-            value={priceForm.amount}
-            onChange={(v) => onPriceFormChange({ ...priceForm, amount: v })}
-            min={0}
-            decimalScale={2}
-            style={{ flex: 1, minWidth: 120 }}
-            autoFocus
-            withAsterisk
-          />
-          <DatePickerInput
-            placeholder="Effective from"
-            size="sm"
-            value={fromIsoDate(priceForm.effectiveFrom)}
-            onChange={(v) => onPriceFormChange({ ...priceForm, effectiveFrom: v ? pickerValueToIso(v) : "" })}
-            w={160}
-            withAsterisk
-          />
-          <TextInput
-            placeholder="Note (optional)"
-            size="sm"
-            value={priceForm.note}
-            onChange={(e) => onPriceFormChange({ ...priceForm, note: e.target.value })}
-            style={{ flex: 1, minWidth: 120 }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && parseFinite(priceForm.amount) != null && priceForm.effectiveFrom) onSubmitAddPrice()
-              if (e.key === "Escape") onCancelAddPrice()
-            }}
-          />
-          <Group gap={4} wrap="nowrap">
-            <ActionIcon size="md" variant="filled" color="blue" onClick={onSubmitAddPrice} disabled={parseFinite(priceForm.amount) == null || !priceForm.effectiveFrom} aria-label="Save">
-              <IconCheck size={16} />
-            </ActionIcon>
-            <ActionIcon size="md" variant="subtle" color="gray" onClick={onCancelAddPrice} aria-label="Cancel">
-              <IconX size={16} />
-            </ActionIcon>
+          <Group gap="sm" py={8} wrap="wrap" mt="xs">
+            <NumberInput
+              placeholder={`Amount (${currency})`}
+              size="sm"
+              value={priceForm.amount}
+              onChange={(v) => onPriceFormChange({ ...priceForm, amount: v })}
+              min={0}
+              decimalScale={2}
+              style={{ flex: 1, minWidth: 120 }}
+              autoFocus
+              withAsterisk
+            />
+            <DatePickerInput
+              placeholder="Effective from"
+              size="sm"
+              value={fromIsoDate(priceForm.effectiveFrom)}
+              onChange={(v) => onPriceFormChange({ ...priceForm, effectiveFrom: v ? pickerValueToIso(v) : "" })}
+              w={160}
+              withAsterisk
+            />
+            <TextInput
+              placeholder="Note (optional)"
+              size="sm"
+              value={priceForm.note}
+              onChange={(e) => onPriceFormChange({ ...priceForm, note: e.target.value })}
+              style={{ flex: 1, minWidth: 120 }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && parseFinite(priceForm.amount) != null && priceForm.effectiveFrom) onSubmitAddPrice()
+                if (e.key === "Escape") onCancelAddPrice()
+              }}
+            />
+            <Group gap={4} wrap="nowrap">
+              <ActionIcon size="md" variant="filled" color="blue" onClick={onSubmitAddPrice} disabled={parseFinite(priceForm.amount) == null || !priceForm.effectiveFrom} aria-label="Save">
+                <IconCheck size={16} />
+              </ActionIcon>
+              <ActionIcon size="md" variant="subtle" color="gray" onClick={onCancelAddPrice} aria-label="Cancel">
+                <IconX size={16} />
+              </ActionIcon>
+            </Group>
           </Group>
-        </Group>
-      ) : (
-        <Button variant="subtle" size="compact-sm" c="dimmed" mt="xs" leftSection={<IconPlus size={12} />} onClick={() => onStartAddPrice(cat.id)}>
-          Add price
-        </Button>
-      )}
+        ) : (
+          <Button variant="subtle" size="compact-sm" c="dimmed" mt={4} leftSection={<IconPlus size={12} />} onClick={() => onStartAddPrice(cat.id)}>
+            Add price entry
+          </Button>
+        )}
+      </Box>
     </Box>
   )
 }

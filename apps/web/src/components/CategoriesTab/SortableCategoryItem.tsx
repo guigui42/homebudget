@@ -10,6 +10,7 @@ import {
   Tooltip,
   ColorSwatch,
   Box,
+  UnstyledButton,
 } from "@mantine/core"
 import {
   IconGripVertical,
@@ -19,6 +20,7 @@ import {
   IconCornerDownRight,
   IconChevronRight,
   IconChevronDown,
+  IconCurrencyDollar,
 } from "@tabler/icons-react"
 import type { ExpenseCategory, PriceEntry } from "../../api/client"
 import { formatNumber } from "../../utils/format"
@@ -155,7 +157,7 @@ function ItemContent({
   moveMenu,
 }: ItemContentProps) {
   const hasPrice = priceInfo && (priceInfo.latest || priceInfo.count > 0)
-  const showPriceToggle = !isGroup || hasPrice
+  const showPricePill = (!isGroup || hasPrice) && onToggleExpand
 
   return (
     <Group gap="sm" py={6} pl={isChild ? 28 : 0} wrap="nowrap">
@@ -176,19 +178,7 @@ function ItemContent({
       <Text fw={isGroup ? 600 : 400} style={{ flex: 1 }}>{category.name}</Text>
       <Badge size="sm" variant="outline">{category.frequency}</Badge>
 
-      {priceInfo?.latest && (
-        <Text size="sm" fw={500} style={{ fontVariantNumeric: "tabular-nums" }}>
-          {formatNumber(priceInfo.latest.amount, 2)} {currency}
-        </Text>
-      )}
-
-      {showPriceToggle && onToggleExpand && (
-        <Tooltip label={isExpanded ? "Hide prices" : "Show prices"} withArrow>
-          <ActionIcon variant="subtle" size="sm" c="dimmed" onClick={onToggleExpand}>
-            {isExpanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-          </ActionIcon>
-        </Tooltip>
-      )}
+      {showPricePill && <PricePill priceInfo={priceInfo} currency={currency} isExpanded={isExpanded} onToggle={onToggleExpand} />}
 
       {!isChild && (
         <Tooltip label="Add sub-category" withArrow>
@@ -209,5 +199,86 @@ function ItemContent({
         </ActionIcon>
       </Tooltip>
     </Group>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Price Pill — clickable badge that toggles the price expansion panel
+// ---------------------------------------------------------------------------
+
+interface PricePillProps {
+  priceInfo?: CategoryPriceInfo
+  currency?: string
+  isExpanded?: boolean
+  onToggle?: () => void
+}
+
+function PricePill({ priceInfo, currency, isExpanded, onToggle }: PricePillProps) {
+  const hasLatest = priceInfo?.latest != null
+  const historyCount = priceInfo?.count ?? 0
+  const chevron = isExpanded ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />
+
+  if (hasLatest) {
+    return (
+      <Tooltip label={isExpanded ? "Hide price history" : `${historyCount} ${historyCount === 1 ? "entry" : "entries"} — click to manage`} withArrow>
+        <UnstyledButton
+          onClick={onToggle}
+          aria-label={isExpanded ? "Hide price history" : "Show price history"}
+          aria-expanded={isExpanded}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "3px 10px 3px 8px",
+            borderRadius: "var(--mantine-radius-xl)",
+            background: isExpanded
+              ? "var(--mantine-color-blue-light)"
+              : "var(--mantine-color-dark-5)",
+            border: isExpanded
+              ? "1px solid var(--mantine-color-blue-4)"
+              : "1px solid var(--mantine-color-dark-4)",
+            cursor: "pointer",
+            transition: "all 150ms ease",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          <Text size="sm" fw={600} span c={isExpanded ? "blue.3" : undefined} style={{ fontVariantNumeric: "tabular-nums" }}>
+            {formatNumber(priceInfo!.latest!.amount, 2)}
+          </Text>
+          <Text size="xs" span c="dimmed">
+            {currency}
+          </Text>
+          <Box c={isExpanded ? "blue.3" : "dimmed"} style={{ display: "flex", alignItems: "center", marginLeft: 2 }}>
+            {chevron}
+          </Box>
+        </UnstyledButton>
+      </Tooltip>
+    )
+  }
+
+  // Empty state — dashed "Set price" pill
+  return (
+    <Tooltip label="Click to set a price for this category" withArrow>
+      <UnstyledButton
+        onClick={onToggle}
+        aria-label="Set price"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          padding: "3px 10px 3px 8px",
+          borderRadius: "var(--mantine-radius-xl)",
+          background: "transparent",
+          border: "1px dashed var(--mantine-color-dark-3)",
+          cursor: "pointer",
+          transition: "all 150ms ease",
+        }}
+      >
+        <IconCurrencyDollar size={13} color="var(--mantine-color-dimmed)" />
+        <Text size="xs" c="dimmed" span>
+          Set price
+        </Text>
+      </UnstyledButton>
+    </Tooltip>
   )
 }
