@@ -239,10 +239,21 @@ export function CategoriesTab() {
   // ---------------------------------------------------------------------------
 
   const toggleExpandPrice = (catId: number) => {
-    setExpandedCat((prev) => prev === catId ? null : catId)
-    if (addingPriceTo !== catId) {
+    const isCollapsing = expandedCat === catId
+    setExpandedCat(isCollapsing ? null : catId)
+
+    if (isCollapsing) {
       setAddingPriceTo(null)
       setPriceForm({ amount: 0, effectiveFrom: "", note: "" })
+    } else {
+      // Auto-open add form when category has no prices
+      const history = allPrices[catId] ?? []
+      if (history.length === 0) {
+        setAddingPriceTo(catId)
+        setPriceForm({ amount: 0, effectiveFrom: "", note: "" })
+      } else if (addingPriceTo !== catId) {
+        setAddingPriceTo(null)
+      }
     }
   }
 
