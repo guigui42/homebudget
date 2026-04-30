@@ -31,15 +31,26 @@ import {
   ActionIcon,
   SimpleGrid,
   UnstyledButton,
+  NumberInput,
+  TextInput,
 } from "@mantine/core"
+import { DatePickerInput } from "@mantine/dates"
 import { modals } from "@mantine/modals"
-import { IconPlus, IconArrowsTransferDown, IconArrowLeft, IconMapPin } from "@tabler/icons-react"
+import { notifications } from "@mantine/notifications"
+import { IconPlus, IconArrowsTransferDown, IconArrowLeft, IconMapPin, IconCheck, IconX, IconTrash } from "@tabler/icons-react"
 
-import { locations as locationsApi, categories as categoriesApi } from "../../api/client"
-import type { Location, ExpenseCategory } from "../../api/client"
-import { SortableCategoryItem } from "./SortableCategoryItem"
+import { locations as locationsApi, categories as categoriesApi, prices as pricesApi } from "../../api/client"
+import type { Location, ExpenseCategory, PriceEntry } from "../../api/client"
+import { SortableCategoryItem, type CategoryPriceInfo } from "./SortableCategoryItem"
 import { CategoryDraftRow, type DraftData } from "./CategoryDraftRow"
+import { formatNumber } from "../../utils/format"
+import { fromIsoDate, pickerValueToIso } from "../../utils/date.js"
 import classes from "../LocationCard.module.css"
+
+function parseFinite(v: number | string): number | undefined {
+  const n = typeof v === "number" ? v : Number(v)
+  return Number.isFinite(n) ? n : undefined
+}
 
 type ActiveDraft =
   | null
@@ -55,11 +66,44 @@ export function CategoriesTab() {
   const [reordering, setReordering] = useState(false)
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null)
 
+  // Price state
+  const [allPrices, setAllPrices] = useState<Record<number, PriceEntry[]>>({})
+  const [expandedCat, setExpandedCat] = useState<number | null>(null)
+  const [addingPriceTo, setAddingPriceTo] = useState<number | null>(null)
+  const [priceForm, setPriceForm] = useState({ amount: 0 as number | string, effectiveFrom: "" as string, note: "" })
+
   const load = useCallback(() => {
     locationsApi.list().then(setLocs)
     categoriesApi.listAll().then(setItems)
   }, [])
   useEffect(load, [load])
+
+  // Load prices when a location is selected
+  const loadPricesForLocation = useCallback(async (locationId: number, catList: ExpenseCategory[]) => {
+    const locCats = catList.filter((c) => c.locationId === locationId)
+    const leaves = locCats.filter((c) => !locCats.some((ch) => ch.parentId === c.id))
+    // Also include groups that might have legacy price data
+    const withPrices = new Set(leaves.map((c) => c.id))
+    const groups = locCats.filter((c) => !withPrices.has(c.id))
+    const allToFetch = [...leaves, ...groups]
+    const entries = await Promise.all(
+      allToFetch.map((c) => pricesApi.history(c.id).then((h) => [c.id, h] as const)),
+    )
+    setAllPrices(Object.fromEntries(entries))
+  }, [])
+
+  useEffect(() => {
+    if (selectedLocationId != null && items.length > 0) {
+      loadPricesForLocation(selectedLocationId, items)
+    }
+  }, [selectedLocationId, items, loadPricesForLocation])
+
+  // Reset price state on location change
+  useEffect(() => {
+    setExpandedCat(null)
+    setAddingPriceTo(null)
+    setPriceForm({ amount: 0, effectiveFrom: "", note: "" })
+  }, [selectedLocationId])
 
   // ---------------------------------------------------------------------------
   // Draft (add / edit)
@@ -191,6 +235,79 @@ export function CategoriesTab() {
   }
 
   // ---------------------------------------------------------------------------
+  // Price management
+  // ---------------------------------------------------------------------------
+
+  const toggleExpandPrice = (catId: number) => {
+    setExpandedCat((prev) => prev === catId ? null : catId)
+    if (addingPriceTo !== catId) {
+      setAddingPriceTo(null)
+      setPriceForm({ amount: 0, effectiveFrom: "", note: "" })
+    }
+  }
+
+  const startAddPrice = (catId: number) => {
+    setAddingPriceTo(catId)
+    setExpandedCat(catId)
+    setPriceForm({ amount: 0, effectiveFrom: "", note: "" })
+  }
+
+  const cancelAddPrice = () => {
+    setAddingPriceTo(null)
+    setPriceForm({ amount: 0, effectiveFrom: "", note: "" })
+  }
+
+  const submitAddPrice = async () => {
+    if (!addingPriceTo) return
+    const amount = parseFinite(priceForm.amount)
+    if (amount == null) return
+    const catId = addingPriceTo
+    const currency = locs.find((l) => l.id === items.find((c) => c.id === catId)?.locationId)?.currency ?? "EUR"
+    try {
+      await pricesApi.create({
+        expenseCategoryId: catId,
+        amount,
+        currency,
+        effectiveFrom: priceForm.effectiveFrom,
+        note: priceForm.note || undefined,
+      })
+      notifications.show({ title: "Success", message: "Price entry created", color: "teal", icon: <IconCheck size={16} /> })
+      setAddingPriceTo(null)
+      setPriceForm({ amount: 0, effectiveFrom: "", note: "" })
+      const updated = await pricesApi.history(catId)
+      setAllPrices((prev) => ({ ...prev, [catId]: updated }))
+    } catch (e) {
+      console.error("Failed to create price entry:", e)
+      notifications.show({ title: "Error", message: "Failed to create price entry", color: "red", icon: <IconX size={16} /> })
+    }
+  }
+
+  const confirmDeletePrice = (entry: PriceEntry) => {
+    modals.openConfirmModal({
+      title: "Delete price entry",
+      children: <Text size="sm">Delete the price entry from {entry.effectiveFrom}? This cannot be undone.</Text>,
+      labels: { confirm: "Delete", cancel: "Cancel" },
+      confirmProps: { color: "red" },
+      onConfirm: async () => {
+        try {
+          await pricesApi.remove(entry.id)
+          notifications.show({ title: "Success", message: "Price entry deleted", color: "teal", icon: <IconCheck size={16} /> })
+          const updated = await pricesApi.history(entry.expenseCategoryId)
+          setAllPrices((prev) => ({ ...prev, [entry.expenseCategoryId]: updated }))
+        } catch (e) {
+          console.error("Failed to delete price entry:", e)
+          notifications.show({ title: "Error", message: "Failed to delete price entry", color: "red", icon: <IconX size={16} /> })
+        }
+      },
+    })
+  }
+
+  const getPriceInfo = (catId: number): CategoryPriceInfo => {
+    const history = allPrices[catId] ?? []
+    return { latest: history[0] ?? null, count: history.length }
+  }
+
+  // ---------------------------------------------------------------------------
   // Drag and drop (same-level reorder only)
   // ---------------------------------------------------------------------------
 
@@ -206,6 +323,8 @@ export function CategoriesTab() {
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as number)
+    setExpandedCat(null)
+    setAddingPriceTo(null)
   }
 
   const handleDragCancel = () => {
@@ -273,7 +392,7 @@ export function CategoriesTab() {
   if (!selectedLoc) {
     return (
       <>
-        <Title order={4} mb="md">Expense Categories</Title>
+        <Title order={4} mb="md">Categories &amp; Prices</Title>
         <SimpleGrid cols={{ base: 1, xs: 2, sm: 3 }} spacing="md">
           {locs.map((loc) => {
             const catCount = items.filter((c) => c.locationId === loc.id).length
@@ -328,6 +447,17 @@ export function CategoriesTab() {
         onResetDraft={resetDraft}
         onDelete={confirmDelete}
         onMoveToParent={moveToParent}
+        allPrices={allPrices}
+        getPriceInfo={getPriceInfo}
+        expandedCat={expandedCat}
+        onToggleExpandPrice={toggleExpandPrice}
+        addingPriceTo={addingPriceTo}
+        priceForm={priceForm}
+        onPriceFormChange={setPriceForm}
+        onStartAddPrice={startAddPrice}
+        onCancelAddPrice={cancelAddPrice}
+        onSubmitAddPrice={submitAddPrice}
+        onDeletePrice={confirmDeletePrice}
       />
 
       <DragOverlay dropAnimation={{ duration: 200, easing: "ease" }}>
@@ -363,6 +493,18 @@ interface LocationSectionProps {
   onResetDraft: () => void
   onDelete: (cat: ExpenseCategory) => void
   onMoveToParent: (cat: ExpenseCategory, newParentId: number | null) => void
+  // Price props
+  allPrices: Record<number, PriceEntry[]>
+  getPriceInfo: (catId: number) => CategoryPriceInfo
+  expandedCat: number | null
+  onToggleExpandPrice: (catId: number) => void
+  addingPriceTo: number | null
+  priceForm: { amount: number | string; effectiveFrom: string; note: string }
+  onPriceFormChange: (form: { amount: number | string; effectiveFrom: string; note: string }) => void
+  onStartAddPrice: (catId: number) => void
+  onCancelAddPrice: () => void
+  onSubmitAddPrice: () => void
+  onDeletePrice: (entry: PriceEntry) => void
 }
 
 function LocationSection({
@@ -378,6 +520,17 @@ function LocationSection({
   onResetDraft,
   onDelete,
   onMoveToParent,
+  allPrices,
+  getPriceInfo,
+  expandedCat,
+  onToggleExpandPrice,
+  addingPriceTo,
+  priceForm,
+  onPriceFormChange,
+  onStartAddPrice,
+  onCancelAddPrice,
+  onSubmitAddPrice,
+  onDeletePrice,
 }: LocationSectionProps) {
   const locCats = items.filter((c) => c.locationId === loc.id)
   const roots = locCats
@@ -425,20 +578,39 @@ function LocationSection({
                   />
                   <SortableContext items={childIds} strategy={verticalListSortingStrategy}>
                     {children.map((ch) => (
-                      <SortableCategoryItem
-                        key={ch.id}
-                        category={ch}
-                        isChild
-                        isGroup={false}
-                        onStartEdit={() => onStartEdit(ch)}
-                        onDelete={() => onDelete(ch)}
-                        moveMenu={
-                          <MoveMenu
-                            targets={moveTargets(ch)}
-                            onMove={(parentId) => onMoveToParent(ch, parentId)}
-                          />
-                        }
-                      />
+                      <Box key={ch.id}>
+                        <SortableCategoryItem
+                          category={ch}
+                          isChild
+                          isGroup={false}
+                          priceInfo={getPriceInfo(ch.id)}
+                          currency={loc.currency}
+                          isExpanded={expandedCat === ch.id}
+                          onToggleExpand={() => onToggleExpandPrice(ch.id)}
+                          onStartEdit={() => onStartEdit(ch)}
+                          onDelete={() => onDelete(ch)}
+                          moveMenu={
+                            <MoveMenu
+                              targets={moveTargets(ch)}
+                              onMove={(parentId) => onMoveToParent(ch, parentId)}
+                            />
+                          }
+                        />
+                        <PriceExpansion
+                          cat={ch}
+                          isChild
+                          currency={loc.currency}
+                          allPrices={allPrices}
+                          expandedCat={expandedCat}
+                          addingPriceTo={addingPriceTo}
+                          priceForm={priceForm}
+                          onPriceFormChange={onPriceFormChange}
+                          onStartAddPrice={onStartAddPrice}
+                          onCancelAddPrice={onCancelAddPrice}
+                          onSubmitAddPrice={onSubmitAddPrice}
+                          onDeletePrice={onDeletePrice}
+                        />
+                      </Box>
                     ))}
                   </SortableContext>
                 </Box>
@@ -451,6 +623,10 @@ function LocationSection({
                   category={root}
                   isChild={false}
                   isGroup={isGroup}
+                  priceInfo={!isGroup ? getPriceInfo(root.id) : undefined}
+                  currency={loc.currency}
+                  isExpanded={!isGroup ? expandedCat === root.id : undefined}
+                  onToggleExpand={!isGroup ? () => onToggleExpandPrice(root.id) : undefined}
                   onStartAdd={() => onStartAdd(loc.id, root.id)}
                   onStartEdit={() => onStartEdit(root)}
                   onDelete={() => onDelete(root)}
@@ -461,6 +637,22 @@ function LocationSection({
                     />
                   }
                 />
+                {!isGroup && (
+                  <PriceExpansion
+                    cat={root}
+                    isChild={false}
+                    currency={loc.currency}
+                    allPrices={allPrices}
+                    expandedCat={expandedCat}
+                    addingPriceTo={addingPriceTo}
+                    priceForm={priceForm}
+                    onPriceFormChange={onPriceFormChange}
+                    onStartAddPrice={onStartAddPrice}
+                    onCancelAddPrice={onCancelAddPrice}
+                    onSubmitAddPrice={onSubmitAddPrice}
+                    onDeletePrice={onDeletePrice}
+                  />
+                )}
 
                 <SortableContext items={childIds} strategy={verticalListSortingStrategy}>
                   {children.map((ch) =>
@@ -474,20 +666,39 @@ function LocationSection({
                         indent
                       />
                     ) : (
-                      <SortableCategoryItem
-                        key={ch.id}
-                        category={ch}
-                        isChild
-                        isGroup={false}
-                        onStartEdit={() => onStartEdit(ch)}
-                        onDelete={() => onDelete(ch)}
-                        moveMenu={
-                          <MoveMenu
-                            targets={moveTargets(ch)}
-                            onMove={(parentId) => onMoveToParent(ch, parentId)}
-                          />
-                        }
-                      />
+                      <Box key={ch.id}>
+                        <SortableCategoryItem
+                          category={ch}
+                          isChild
+                          isGroup={false}
+                          priceInfo={getPriceInfo(ch.id)}
+                          currency={loc.currency}
+                          isExpanded={expandedCat === ch.id}
+                          onToggleExpand={() => onToggleExpandPrice(ch.id)}
+                          onStartEdit={() => onStartEdit(ch)}
+                          onDelete={() => onDelete(ch)}
+                          moveMenu={
+                            <MoveMenu
+                              targets={moveTargets(ch)}
+                              onMove={(parentId) => onMoveToParent(ch, parentId)}
+                            />
+                          }
+                        />
+                        <PriceExpansion
+                          cat={ch}
+                          isChild
+                          currency={loc.currency}
+                          allPrices={allPrices}
+                          expandedCat={expandedCat}
+                          addingPriceTo={addingPriceTo}
+                          priceForm={priceForm}
+                          onPriceFormChange={onPriceFormChange}
+                          onStartAddPrice={onStartAddPrice}
+                          onCancelAddPrice={onCancelAddPrice}
+                          onSubmitAddPrice={onSubmitAddPrice}
+                          onDeletePrice={onDeletePrice}
+                        />
+                      </Box>
                     ),
                   )}
                 </SortableContext>
@@ -541,6 +752,117 @@ function LocationSection({
         </Button>
       )}
     </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Inline price expansion (rendered as sibling, outside draggable node)
+// ---------------------------------------------------------------------------
+
+interface PriceExpansionProps {
+  cat: ExpenseCategory
+  isChild: boolean
+  currency: string
+  allPrices: Record<number, PriceEntry[]>
+  expandedCat: number | null
+  addingPriceTo: number | null
+  priceForm: { amount: number | string; effectiveFrom: string; note: string }
+  onPriceFormChange: (form: { amount: number | string; effectiveFrom: string; note: string }) => void
+  onStartAddPrice: (catId: number) => void
+  onCancelAddPrice: () => void
+  onSubmitAddPrice: () => void
+  onDeletePrice: (entry: PriceEntry) => void
+}
+
+function PriceExpansion({
+  cat,
+  isChild,
+  currency,
+  allPrices,
+  expandedCat,
+  addingPriceTo,
+  priceForm,
+  onPriceFormChange,
+  onStartAddPrice,
+  onCancelAddPrice,
+  onSubmitAddPrice,
+  onDeletePrice,
+}: PriceExpansionProps) {
+  if (expandedCat !== cat.id) return null
+
+  const history = allPrices[cat.id] ?? []
+  const basePl = isChild ? 56 : 28
+
+  return (
+    <Box pl={basePl} pb="xs">
+      {history.length > 0 ? (
+        <Stack gap={0}>
+          {history.map((entry) => (
+            <Group key={entry.id} gap="sm" py={4} wrap="nowrap">
+              <Text size="sm" c="dimmed" w={100}>{entry.effectiveFrom}</Text>
+              <Text size="sm" fw={500} style={{ fontVariantNumeric: "tabular-nums" }}>
+                {formatNumber(entry.amount, 2)} {entry.currency}
+              </Text>
+              <Text size="sm" c="dimmed" style={{ flex: 1 }}>{entry.note ?? ""}</Text>
+              <Tooltip label="Delete" withArrow>
+                <ActionIcon variant="subtle" color="red" size="md" aria-label="Delete price entry" onClick={() => onDeletePrice(entry)}>
+                  <IconTrash size={14} stroke={1.5} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
+          ))}
+        </Stack>
+      ) : (
+        <Text size="sm" c="dimmed" py={4}>No price entries yet</Text>
+      )}
+
+      {addingPriceTo === cat.id ? (
+        <Group gap="sm" py={8} wrap="wrap" mt="xs">
+          <NumberInput
+            placeholder={`Amount (${currency})`}
+            size="sm"
+            value={priceForm.amount}
+            onChange={(v) => onPriceFormChange({ ...priceForm, amount: v })}
+            min={0}
+            decimalScale={2}
+            style={{ flex: 1, minWidth: 120 }}
+            autoFocus
+            withAsterisk
+          />
+          <DatePickerInput
+            placeholder="Effective from"
+            size="sm"
+            value={fromIsoDate(priceForm.effectiveFrom)}
+            onChange={(v) => onPriceFormChange({ ...priceForm, effectiveFrom: v ? pickerValueToIso(v) : "" })}
+            w={160}
+            withAsterisk
+          />
+          <TextInput
+            placeholder="Note (optional)"
+            size="sm"
+            value={priceForm.note}
+            onChange={(e) => onPriceFormChange({ ...priceForm, note: e.target.value })}
+            style={{ flex: 1, minWidth: 120 }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && parseFinite(priceForm.amount) != null && priceForm.effectiveFrom) onSubmitAddPrice()
+              if (e.key === "Escape") onCancelAddPrice()
+            }}
+          />
+          <Group gap={4} wrap="nowrap">
+            <ActionIcon size="md" variant="filled" color="blue" onClick={onSubmitAddPrice} disabled={parseFinite(priceForm.amount) == null || !priceForm.effectiveFrom} aria-label="Save">
+              <IconCheck size={16} />
+            </ActionIcon>
+            <ActionIcon size="md" variant="subtle" color="gray" onClick={onCancelAddPrice} aria-label="Cancel">
+              <IconX size={16} />
+            </ActionIcon>
+          </Group>
+        </Group>
+      ) : (
+        <Button variant="subtle" size="compact-sm" c="dimmed" mt="xs" leftSection={<IconPlus size={12} />} onClick={() => onStartAddPrice(cat.id)}>
+          Add price
+        </Button>
+      )}
+    </Box>
   )
 }
 

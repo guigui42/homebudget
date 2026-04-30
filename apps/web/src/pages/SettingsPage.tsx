@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { formatNumber } from "../utils/format"
 import {
   Container,
@@ -18,12 +18,8 @@ import {
   Paper,
   Box,
   Tooltip,
-  ColorInput,
-  ColorSwatch,
   Skeleton,
   ThemeIcon,
-  SimpleGrid,
-  UnstyledButton,
 } from "@mantine/core"
 import { DatePickerInput } from "@mantine/dates"
 import { useDisclosure } from "@mantine/hooks"
@@ -34,36 +30,24 @@ import {
   IconTrash,
   IconCheck,
   IconX,
-  IconEdit,
-  IconChevronRight,
-  IconChevronDown,
-  IconCornerDownRight,
   IconMapPin,
   IconCategory,
   IconCash,
-  IconTag,
   IconArrowsExchange,
   IconDownload,
-  IconArrowLeft,
 } from "@tabler/icons-react"
 import {
   locations,
-  categories,
   salary,
-  prices,
   exchangeRates,
 } from "../api/client"
 import type {
   Location,
-  ExpenseCategory,
   SalaryEntry,
-  PriceEntry,
   ExchangeRateEntry,
 } from "../api/client"
-import { CHART_COLORS } from "../constants"
-import { toIsoDate, fromIsoDate, pickerValueToIso } from "../utils/date.js"
+import { fromIsoDate, pickerValueToIso } from "../utils/date.js"
 import { CategoriesTab } from "../components/CategoriesTab"
-import locationCardClasses from "../components/LocationCard.module.css"
 
 /** Safely parse a NumberInput value to a finite number, or return undefined. */
 function parseFinite(v: number | string): number | undefined {
@@ -294,285 +278,6 @@ function SalaryTab() {
 }
 
 // ---------------------------------------------------------------------------
-// Prices Tab
-// ---------------------------------------------------------------------------
-
-function PricesTab() {
-  const [locs, setLocs] = useState<Location[]>([])
-  const [cats, setCats] = useState<ExpenseCategory[]>([])
-  const [allPrices, setAllPrices] = useState<Record<number, PriceEntry[]>>({})
-  const [loading, setLoading] = useState<boolean>(true)
-  const [expandedCat, setExpandedCat] = useState<number | null>(null)
-  const [addingTo, setAddingTo] = useState<number | null>(null)
-  const [addForm, setAddForm] = useState({ amount: 0 as number | string, effectiveFrom: "" as string, note: "" })
-  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null)
-
-  const loadPrices = useCallback(async (catList: ExpenseCategory[]) => {
-    const leaves = catList.filter((c) => !catList.some((ch) => ch.parentId === c.id))
-    const entries = await Promise.all(leaves.map((c) => prices.history(c.id).then((h) => [c.id, h] as const)))
-    setAllPrices(Object.fromEntries(entries))
-  }, [])
-
-  const load = useCallback(async () => {
-    try {
-      const [l, c] = await Promise.all([locations.list(), categories.listAll()])
-      setLocs(l)
-      setCats(c)
-      await loadPrices(c)
-    } finally {
-      setLoading(false)
-    }
-  }, [loadPrices])
-
-  useEffect(() => { load() }, [load])
-
-  const toggleExpand = (catId: number) => {
-    setExpandedCat((prev) => prev === catId ? null : catId)
-    if (addingTo !== catId) setAddingTo(null)
-  }
-
-  const startAdd = (catId: number) => {
-    setAddingTo(catId)
-    setExpandedCat(catId)
-    setAddForm({ amount: 0, effectiveFrom: "", note: "" })
-  }
-
-  const cancelAdd = () => {
-    setAddingTo(null)
-    setAddForm({ amount: 0, effectiveFrom: "", note: "" })
-  }
-
-  const submitAdd = async () => {
-    if (!addingTo) return
-    const amount = parseFinite(addForm.amount)
-    if (amount == null) return
-    const catId = addingTo
-    const currency = locs.find((l) => l.id === cats.find((c) => c.id === catId)?.locationId)?.currency ?? "EUR"
-    try {
-      const amount = parseFinite(addForm.amount)
-      if (amount == null) return
-      await prices.create({
-        expenseCategoryId: catId,
-        amount,
-        currency,
-        effectiveFrom: addForm.effectiveFrom,
-        note: addForm.note || undefined,
-      })
-      notifications.show({ title: "Success", message: "Price entry created", color: "teal", icon: <IconCheck size={16} /> })
-      setAddingTo(null)
-      setAddForm({ amount: 0, effectiveFrom: "", note: "" })
-      const updated = await prices.history(catId)
-      setAllPrices((prev) => ({ ...prev, [catId]: updated }))
-    } catch (e) {
-      console.error("Failed to create price entry:", e)
-      notifications.show({ title: "Error", message: "Failed to create price entry", color: "red", icon: <IconX size={16} /> })
-    }
-  }
-
-  const confirmDeletePrice = (entry: PriceEntry) => {
-    modals.openConfirmModal({
-      title: "Delete price entry",
-      children: <Text size="sm">Delete the price entry from {entry.effectiveFrom}? This cannot be undone.</Text>,
-      labels: { confirm: "Delete", cancel: "Cancel" },
-      confirmProps: { color: "red" },
-      onConfirm: async () => {
-        try {
-          await prices.remove(entry.id)
-          notifications.show({ title: "Success", message: "Price entry deleted", color: "teal", icon: <IconCheck size={16} /> })
-          const updated = await prices.history(entry.expenseCategoryId)
-          setAllPrices((prev) => ({ ...prev, [entry.expenseCategoryId]: updated }))
-        } catch (e) {
-          console.error("Failed to delete price entry:", e)
-          notifications.show({ title: "Error", message: "Failed to delete price entry", color: "red", icon: <IconX size={16} /> })
-        }
-      },
-    })
-  }
-
-  const LeafRow = ({ cat, indent }: { cat: ExpenseCategory; indent?: boolean }) => {
-    const history = allPrices[cat.id] ?? []
-    const latest = history[0]
-    const isExpanded = expandedCat === cat.id
-    const currency = locs.find((l) => l.id === cat.locationId)?.currency ?? "EUR"
-
-    return (
-      <Box>
-        <Group
-          gap="sm" py={6} pl={indent ? 28 : 0} wrap="nowrap"
-          style={{ cursor: "pointer", borderRadius: "var(--mantine-radius-sm)" }}
-          onClick={() => toggleExpand(cat.id)}
-        >
-          {indent && <IconCornerDownRight size={14} color="var(--mantine-color-dimmed)" />}
-          {cat.color && <ColorSwatch size={12} color={cat.color} />}
-          <Text style={{ flex: 1 }}>{cat.name}</Text>
-          {latest ? (
-            <>
-              <Text fw={600} style={{ fontVariantNumeric: "tabular-nums" }}>{formatNumber(latest.amount, 2)} {latest.currency}</Text>
-              <Text size="sm" c="dimmed">since {latest.effectiveFrom}</Text>
-            </>
-          ) : (
-            <Text size="sm" c="dimmed" fs="italic">no price set</Text>
-          )}
-          <Tooltip label="Add price" withArrow>
-            <ActionIcon variant="subtle" size="md" aria-label="Add price" onClick={(e) => { e.stopPropagation(); startAdd(cat.id) }}>
-              <IconPlus size={14} />
-            </ActionIcon>
-          </Tooltip>
-          {isExpanded
-            ? <IconChevronDown size={14} color="var(--mantine-color-dimmed)" aria-label="Collapse" />
-            : <IconChevronRight size={14} color="var(--mantine-color-dimmed)" aria-label="Expand" />
-          }
-        </Group>
-
-        {isExpanded && (
-          <Box pl={indent ? 56 : 28} pb="xs">
-            {history.length > 0 ? (
-              <Stack gap={0}>
-                {history.map((entry) => (
-                  <Group key={entry.id} gap="sm" py={4} wrap="nowrap">
-                    <Text size="sm" c="dimmed" w={100}>{entry.effectiveFrom}</Text>
-                    <Text size="sm" fw={500} style={{ fontVariantNumeric: "tabular-nums" }}>{formatNumber(entry.amount, 2)} {entry.currency}</Text>
-                    <Text size="sm" c="dimmed" style={{ flex: 1 }}>{entry.note ?? ""}</Text>
-                    <Tooltip label="Delete" withArrow>
-                      <ActionIcon variant="subtle" color="red" size="md" aria-label="Delete price entry" onClick={() => confirmDeletePrice(entry)}>
-                        <IconTrash size={14} stroke={1.5} />
-                      </ActionIcon>
-                    </Tooltip>
-                  </Group>
-                ))}
-              </Stack>
-            ) : (
-              <Text size="sm" c="dimmed" py={4}>No price entries yet</Text>
-            )}
-
-            {addingTo === cat.id ? (
-              <Group gap="sm" py={8} wrap="wrap" mt="xs">
-                <NumberInput
-                  placeholder={`Amount (${currency})`}
-                  size="sm"
-                  value={addForm.amount}
-                  onChange={(v) => setAddForm({ ...addForm, amount: v })}
-                  min={0}
-                  decimalScale={2}
-                  style={{ flex: 1, minWidth: 120 }}
-                  autoFocus
-                  withAsterisk
-                />
-                <DatePickerInput
-                  placeholder="Effective from"
-                  size="sm"
-                  value={fromIsoDate(addForm.effectiveFrom)}
-                  onChange={(v) => setAddForm({ ...addForm, effectiveFrom: v ? pickerValueToIso(v) : "" })}
-                  w={160}
-                  withAsterisk
-                />
-                <TextInput
-                  placeholder="Note (optional)"
-                  size="sm"
-                  value={addForm.note}
-                  onChange={(e) => setAddForm({ ...addForm, note: e.target.value })}
-                  style={{ flex: 1, minWidth: 120 }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && parseFinite(addForm.amount) != null && addForm.effectiveFrom) submitAdd()
-                    if (e.key === "Escape") cancelAdd()
-                  }}
-                />
-                <Group gap={4} wrap="nowrap">
-                  <ActionIcon size="md" variant="filled" color="blue" onClick={submitAdd} disabled={parseFinite(addForm.amount) == null || !addForm.effectiveFrom} aria-label="Save">
-                    <IconCheck size={16} />
-                  </ActionIcon>
-                  <ActionIcon size="md" variant="subtle" color="gray" onClick={cancelAdd} aria-label="Cancel">
-                    <IconX size={16} />
-                  </ActionIcon>
-                </Group>
-              </Group>
-            ) : (
-              <Button variant="subtle" size="compact-sm" c="dimmed" mt="xs" leftSection={<IconPlus size={12} />} onClick={() => startAdd(cat.id)}>
-                Add price
-              </Button>
-            )}
-          </Box>
-        )}
-      </Box>
-    )
-  }
-
-  if (loading) return <Stack gap="md"><Skeleton height={40} /><Skeleton height={200} /></Stack>
-
-  const parentIds = useMemo(() => new Set(cats.map((c) => c.parentId).filter((id): id is number => id != null)), [cats])
-
-  const selectedLoc = selectedLocationId != null ? locs.find((l) => l.id === selectedLocationId) : null
-
-  if (!selectedLoc) {
-    return (
-      <>
-        <Title order={4} mb="md">Price History</Title>
-        <SimpleGrid cols={{ base: 1, xs: 2, sm: 3 }} spacing="md">
-          {locs.map((loc) => {
-            const leafCount = cats.filter((c) => c.locationId === loc.id && !parentIds.has(c.id)).length
-            return (
-              <UnstyledButton key={loc.id} onClick={() => setSelectedLocationId(loc.id)}>
-                <Paper withBorder p="xl" radius="md" className={locationCardClasses.card}>
-                  <Stack align="center" gap="sm">
-                    <IconMapPin size={32} stroke={1.5} color="var(--mantine-color-blue-6)" />
-                    <Text fw={600} size="lg" ta="center">{loc.name}</Text>
-                    <Badge size="sm" variant="light">{loc.currency}</Badge>
-                    <Text size="sm" c="dimmed">{leafCount} {leafCount === 1 ? "price" : "prices"}</Text>
-                  </Stack>
-                </Paper>
-              </UnstyledButton>
-            )
-          })}
-        </SimpleGrid>
-      </>
-    )
-  }
-
-  const locCats = cats.filter((c) => c.locationId === selectedLoc.id)
-  const roots = locCats.filter((c) => c.parentId === null)
-
-  return (
-    <>
-      <Group gap="xs" mb="md">
-        <ActionIcon variant="subtle" size="lg" onClick={() => setSelectedLocationId(null)} aria-label="Back to locations">
-          <IconArrowLeft size={20} />
-        </ActionIcon>
-        <Title order={4}>{selectedLoc.name}</Title>
-        <Badge size="sm" variant="light">{selectedLoc.currency}</Badge>
-      </Group>
-
-      <Stack gap={0}>
-        {roots.map((root) => {
-          const children = locCats.filter((c) => c.parentId === root.id)
-          const isGroup = children.length > 0
-          const isLeaf = !cats.some((ch) => ch.parentId === root.id)
-
-          if (isGroup) {
-            return (
-              <Box key={root.id} mb="xs">
-                <Group gap="sm" py={4}>
-                  {root.color && <ColorSwatch size={14} color={root.color} />}
-                  <Text fw={600}>{root.name}</Text>
-                </Group>
-                {children.map((ch) => (
-                  <LeafRow key={ch.id} cat={ch} indent />
-                ))}
-              </Box>
-            )
-          }
-
-          if (isLeaf) {
-            return <LeafRow key={root.id} cat={root} />
-          }
-
-          return null
-        })}
-      </Stack>
-    </>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // Exchange Rates Tab
 // ---------------------------------------------------------------------------
 
@@ -718,16 +423,14 @@ export function SettingsPage() {
       <Tabs defaultValue="locations" variant="pills" radius="md">
         <Tabs.List mb="lg" style={{ flexWrap: "nowrap", overflowX: "auto" }}>
           <Tabs.Tab value="locations" leftSection={<IconMapPin size={16} stroke={1.5} />}>Locations</Tabs.Tab>
-          <Tabs.Tab value="categories" leftSection={<IconCategory size={16} stroke={1.5} />}>Categories</Tabs.Tab>
+          <Tabs.Tab value="categories" leftSection={<IconCategory size={16} stroke={1.5} />}>Categories &amp; Prices</Tabs.Tab>
           <Tabs.Tab value="salary" leftSection={<IconCash size={16} stroke={1.5} />}>Salary</Tabs.Tab>
-          <Tabs.Tab value="prices" leftSection={<IconTag size={16} stroke={1.5} />}>Prices</Tabs.Tab>
           <Tabs.Tab value="exchangeRates" leftSection={<IconArrowsExchange size={16} stroke={1.5} />}>Exchange Rates</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="locations"><LocationsTab /></Tabs.Panel>
         <Tabs.Panel value="categories"><CategoriesTab /></Tabs.Panel>
         <Tabs.Panel value="salary"><SalaryTab /></Tabs.Panel>
-        <Tabs.Panel value="prices"><PricesTab /></Tabs.Panel>
         <Tabs.Panel value="exchangeRates"><ExchangeRatesTab /></Tabs.Panel>
       </Tabs>
     </Container>
