@@ -22,6 +22,8 @@ import {
   ColorSwatch,
   Skeleton,
   ThemeIcon,
+  SimpleGrid,
+  UnstyledButton,
 } from "@mantine/core"
 import { DatePickerInput } from "@mantine/dates"
 import { useDisclosure } from "@mantine/hooks"
@@ -42,6 +44,7 @@ import {
   IconTag,
   IconArrowsExchange,
   IconDownload,
+  IconArrowLeft,
 } from "@tabler/icons-react"
 import {
   locations,
@@ -301,6 +304,7 @@ function PricesTab() {
   const [expandedCat, setExpandedCat] = useState<number | null>(null)
   const [addingTo, setAddingTo] = useState<number | null>(null)
   const [addForm, setAddForm] = useState({ amount: 0 as number | string, effectiveFrom: "" as string, note: "" })
+  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null)
 
   const loadPrices = useCallback(async (catList: ExpenseCategory[]) => {
     const leaves = catList.filter((c) => !catList.some((ch) => ch.parentId === c.id))
@@ -494,50 +498,92 @@ function PricesTab() {
 
   if (loading) return <Stack gap="md"><Skeleton height={40} /><Skeleton height={200} /></Stack>
 
+  const selectedLoc = selectedLocationId != null ? locs.find((l) => l.id === selectedLocationId) : null
+
+  if (!selectedLoc) {
+    return (
+      <>
+        <Title order={4} mb="md">Price History</Title>
+        <SimpleGrid cols={{ base: 1, xs: 2, sm: 3 }} spacing="md">
+          {locs.map((loc) => {
+            const locCats = cats.filter((c) => c.locationId === loc.id)
+            const leafCount = locCats.filter((c) => !cats.some((ch) => ch.parentId === c.id)).length
+            return (
+              <UnstyledButton key={loc.id} onClick={() => setSelectedLocationId(loc.id)}>
+                <Paper
+                  withBorder
+                  p="xl"
+                  radius="md"
+                  style={{
+                    cursor: "pointer",
+                    transition: "border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = "var(--mantine-color-blue-6)"
+                    e.currentTarget.style.transform = "translateY(-2px)"
+                    e.currentTarget.style.boxShadow = "var(--mantine-shadow-md)"
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = ""
+                    e.currentTarget.style.transform = ""
+                    e.currentTarget.style.boxShadow = ""
+                  }}
+                >
+                  <Stack align="center" gap="sm">
+                    <IconMapPin size={32} stroke={1.5} color="var(--mantine-color-blue-6)" />
+                    <Text fw={600} size="lg" ta="center">{loc.name}</Text>
+                    <Badge size="sm" variant="light">{loc.currency}</Badge>
+                    <Text size="sm" c="dimmed">{leafCount} {leafCount === 1 ? "price" : "prices"}</Text>
+                  </Stack>
+                </Paper>
+              </UnstyledButton>
+            )
+          })}
+        </SimpleGrid>
+      </>
+    )
+  }
+
+  const locCats = cats.filter((c) => c.locationId === selectedLoc.id)
+  const roots = locCats.filter((c) => c.parentId === null)
+
   return (
     <>
-      <Title order={4} mb="md">Price History</Title>
-      {locs.map((loc) => {
-        const locCats = cats.filter((c) => c.locationId === loc.id)
-        const roots = locCats.filter((c) => c.parentId === null)
+      <Group gap="xs" mb="md">
+        <ActionIcon variant="subtle" size="lg" onClick={() => setSelectedLocationId(null)} aria-label="Back to locations">
+          <IconArrowLeft size={20} />
+        </ActionIcon>
+        <Title order={4}>{selectedLoc.name}</Title>
+        <Badge size="sm" variant="light">{selectedLoc.currency}</Badge>
+      </Group>
 
-        return (
-          <Paper key={loc.id} withBorder p="md" mb="md">
-            <Group gap="xs" mb="sm">
-              <Text fw={600} size="lg">{loc.name}</Text>
-              <Badge size="sm" variant="light">{loc.currency}</Badge>
-            </Group>
+      <Stack gap={0}>
+        {roots.map((root) => {
+          const children = locCats.filter((c) => c.parentId === root.id)
+          const isGroup = children.length > 0
+          const isLeaf = !cats.some((ch) => ch.parentId === root.id)
 
-            <Stack gap={0}>
-              {roots.map((root) => {
-                const children = locCats.filter((c) => c.parentId === root.id)
-                const isGroup = children.length > 0
-                const isLeaf = !cats.some((ch) => ch.parentId === root.id)
+          if (isGroup) {
+            return (
+              <Box key={root.id} mb="xs">
+                <Group gap="sm" py={4}>
+                  {root.color && <ColorSwatch size={14} color={root.color} />}
+                  <Text fw={600}>{root.name}</Text>
+                </Group>
+                {children.map((ch) => (
+                  <LeafRow key={ch.id} cat={ch} indent />
+                ))}
+              </Box>
+            )
+          }
 
-                if (isGroup) {
-                  return (
-                    <Box key={root.id} mb="xs">
-                      <Group gap="sm" py={4}>
-                        {root.color && <ColorSwatch size={14} color={root.color} />}
-                        <Text fw={600}>{root.name}</Text>
-                      </Group>
-                      {children.map((ch) => (
-                        <LeafRow key={ch.id} cat={ch} indent />
-                      ))}
-                    </Box>
-                  )
-                }
+          if (isLeaf) {
+            return <LeafRow key={root.id} cat={root} />
+          }
 
-                if (isLeaf) {
-                  return <LeafRow key={root.id} cat={root} />
-                }
-
-                return null
-              })}
-            </Stack>
-          </Paper>
-        )
-      })}
+          return null
+        })}
+      </Stack>
     </>
   )
 }

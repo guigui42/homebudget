@@ -29,9 +29,11 @@ import {
   Menu,
   Tooltip,
   ActionIcon,
+  SimpleGrid,
+  UnstyledButton,
 } from "@mantine/core"
 import { modals } from "@mantine/modals"
-import { IconPlus, IconArrowsTransferDown } from "@tabler/icons-react"
+import { IconPlus, IconArrowsTransferDown, IconArrowLeft, IconMapPin } from "@tabler/icons-react"
 
 import { locations as locationsApi, categories as categoriesApi } from "../../api/client"
 import type { Location, ExpenseCategory } from "../../api/client"
@@ -50,6 +52,7 @@ export function CategoriesTab() {
   const [draft, setDraft] = useState<DraftData>({ name: "", frequency: "monthly", color: "" })
   const [activeId, setActiveId] = useState<number | null>(null)
   const [reordering, setReordering] = useState(false)
+  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null)
 
   const load = useCallback(() => {
     locationsApi.list().then(setLocs)
@@ -263,6 +266,55 @@ export function CategoriesTab() {
   // Render
   // ---------------------------------------------------------------------------
 
+  const selectedLoc = selectedLocationId != null ? locs.find((l) => l.id === selectedLocationId) : null
+
+  // When no location selected, show location picker grid
+  if (!selectedLoc) {
+    return (
+      <>
+        <Title order={4} mb="md">Expense Categories</Title>
+        <SimpleGrid cols={{ base: 1, xs: 2, sm: 3 }} spacing="md">
+          {locs.map((loc) => {
+            const catCount = items.filter((c) => c.locationId === loc.id && c.parentId === null).length
+            return (
+              <UnstyledButton
+                key={loc.id}
+                onClick={() => setSelectedLocationId(loc.id)}
+              >
+                <Paper
+                  withBorder
+                  p="xl"
+                  radius="md"
+                  style={{
+                    cursor: "pointer",
+                    transition: "border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = "var(--mantine-color-blue-6)"
+                    e.currentTarget.style.transform = "translateY(-2px)"
+                    e.currentTarget.style.boxShadow = "var(--mantine-shadow-md)"
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = ""
+                    e.currentTarget.style.transform = ""
+                    e.currentTarget.style.boxShadow = ""
+                  }}
+                >
+                  <Stack align="center" gap="sm">
+                    <IconMapPin size={32} stroke={1.5} color="var(--mantine-color-blue-6)" />
+                    <Text fw={600} size="lg" ta="center">{loc.name}</Text>
+                    <Badge size="sm" variant="light">{loc.currency}</Badge>
+                    <Text size="sm" c="dimmed">{catCount} {catCount === 1 ? "category" : "categories"}</Text>
+                  </Stack>
+                </Paper>
+              </UnstyledButton>
+            )
+          })}
+        </SimpleGrid>
+      </>
+    )
+  }
+
   return (
     <DndContext
       sensors={sensors}
@@ -272,25 +324,28 @@ export function CategoriesTab() {
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <Title order={4} mb="md">Expense Categories</Title>
+      <Group gap="xs" mb="md">
+        <ActionIcon variant="subtle" size="lg" onClick={() => setSelectedLocationId(null)} aria-label="Back to locations">
+          <IconArrowLeft size={20} />
+        </ActionIcon>
+        <Title order={4}>{selectedLoc.name}</Title>
+        <Badge size="sm" variant="light">{selectedLoc.currency}</Badge>
+      </Group>
 
-      {locs.map((loc) => (
-        <LocationSection
-          key={loc.id}
-          location={loc}
-          items={items}
-          activeDraft={activeDraft}
-          draft={draft}
-          onDraftChange={setDraft}
-          onStartAdd={startAdd}
-          onStartEdit={startEdit}
-          onSubmitAdd={submitAdd}
-          onSubmitEdit={submitEdit}
-          onResetDraft={resetDraft}
-          onDelete={confirmDelete}
-          onMoveToParent={moveToParent}
-        />
-      ))}
+      <LocationSection
+        location={selectedLoc}
+        items={items}
+        activeDraft={activeDraft}
+        draft={draft}
+        onDraftChange={setDraft}
+        onStartAdd={startAdd}
+        onStartEdit={startEdit}
+        onSubmitAdd={submitAdd}
+        onSubmitEdit={submitEdit}
+        onResetDraft={resetDraft}
+        onDelete={confirmDelete}
+        onMoveToParent={moveToParent}
+      />
 
       <DragOverlay dropAnimation={{ duration: 200, easing: "ease" }}>
         {activeItem ? (
@@ -365,12 +420,7 @@ function LocationSection({
   }
 
   return (
-    <Paper withBorder p="md" mb="md">
-      <Group gap="xs" mb="sm">
-        <Text fw={600} size="lg">{loc.name}</Text>
-        <Badge size="sm" variant="light">{loc.currency}</Badge>
-      </Group>
-
+    <>
       <SortableContext items={rootIds} strategy={verticalListSortingStrategy}>
         <Stack gap={0}>
           {roots.map((root) => {
@@ -507,7 +557,7 @@ function LocationSection({
           Add category
         </Button>
       )}
-    </Paper>
+    </>
   )
 }
 
