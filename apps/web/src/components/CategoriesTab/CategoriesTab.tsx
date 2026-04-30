@@ -44,7 +44,7 @@ import type { Location, ExpenseCategory, PriceEntry } from "../../api/client"
 import { SortableCategoryItem, type CategoryPriceInfo } from "./SortableCategoryItem"
 import { CategoryDraftRow, type DraftData } from "./CategoryDraftRow"
 import { formatNumber } from "../../utils/format"
-import { fromIsoDate, pickerValueToIso } from "../../utils/date.js"
+import { fromIsoDate, pickerValueToIso, todayStr } from "../../utils/date.js"
 import classes from "../LocationCard.module.css"
 
 function parseFinite(v: number | string): number | undefined {
@@ -70,7 +70,7 @@ export function CategoriesTab() {
   const [allPrices, setAllPrices] = useState<Record<number, PriceEntry[]>>({})
   const [expandedCat, setExpandedCat] = useState<number | null>(null)
   const [addingPriceTo, setAddingPriceTo] = useState<number | null>(null)
-  const [priceForm, setPriceForm] = useState({ amount: "" as number | string, effectiveFrom: "" as string, note: "" })
+  const [priceForm, setPriceForm] = useState({ amount: "" as number | string, effectiveFrom: todayStr() as string, note: "" })
 
   const load = useCallback(() => {
     locationsApi.list().then(setLocs)
@@ -102,7 +102,7 @@ export function CategoriesTab() {
   useEffect(() => {
     setExpandedCat(null)
     setAddingPriceTo(null)
-    setPriceForm({ amount: "", effectiveFrom: "", note: "" })
+    setPriceForm({ amount: "", effectiveFrom: todayStr(), note: "" })
   }, [selectedLocationId])
 
   // ---------------------------------------------------------------------------
@@ -244,13 +244,13 @@ export function CategoriesTab() {
 
     if (isCollapsing) {
       setAddingPriceTo(null)
-      setPriceForm({ amount: "", effectiveFrom: "", note: "" })
+      setPriceForm({ amount: "", effectiveFrom: todayStr(), note: "" })
     } else {
       // Auto-open add form when category has no prices
       const history = allPrices[catId] ?? []
       if (history.length === 0) {
         setAddingPriceTo(catId)
-        setPriceForm({ amount: "", effectiveFrom: "", note: "" })
+        setPriceForm({ amount: "", effectiveFrom: todayStr(), note: "" })
       } else if (addingPriceTo !== catId) {
         setAddingPriceTo(null)
       }
@@ -260,12 +260,12 @@ export function CategoriesTab() {
   const startAddPrice = (catId: number) => {
     setAddingPriceTo(catId)
     setExpandedCat(catId)
-    setPriceForm({ amount: "", effectiveFrom: "", note: "" })
+    setPriceForm({ amount: "", effectiveFrom: todayStr(), note: "" })
   }
 
   const cancelAddPrice = () => {
     setAddingPriceTo(null)
-    setPriceForm({ amount: "", effectiveFrom: "", note: "" })
+    setPriceForm({ amount: "", effectiveFrom: todayStr(), note: "" })
   }
 
   const submitAddPrice = async () => {
@@ -284,7 +284,7 @@ export function CategoriesTab() {
       })
       notifications.show({ title: "Success", message: "Price entry created", color: "teal", icon: <IconCheck size={16} /> })
       setAddingPriceTo(null)
-      setPriceForm({ amount: "", effectiveFrom: "", note: "" })
+      setPriceForm({ amount: "", effectiveFrom: todayStr(), note: "" })
       const updated = await pricesApi.history(catId)
       setAllPrices((prev) => ({ ...prev, [catId]: updated }))
     } catch (e) {
