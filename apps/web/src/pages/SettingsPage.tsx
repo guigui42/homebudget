@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { formatNumber } from "../utils/format"
 import {
   Container,
@@ -63,6 +63,7 @@ import type {
 import { CHART_COLORS } from "../constants"
 import { toIsoDate, fromIsoDate, pickerValueToIso } from "../utils/date.js"
 import { CategoriesTab } from "../components/CategoriesTab"
+import locationCardClasses from "../components/LocationCard.module.css"
 
 /** Safely parse a NumberInput value to a finite number, or return undefined. */
 function parseFinite(v: number | string): number | undefined {
@@ -498,6 +499,8 @@ function PricesTab() {
 
   if (loading) return <Stack gap="md"><Skeleton height={40} /><Skeleton height={200} /></Stack>
 
+  const parentIds = useMemo(() => new Set(cats.map((c) => c.parentId).filter((id): id is number => id != null)), [cats])
+
   const selectedLoc = selectedLocationId != null ? locs.find((l) => l.id === selectedLocationId) : null
 
   if (!selectedLoc) {
@@ -506,29 +509,10 @@ function PricesTab() {
         <Title order={4} mb="md">Price History</Title>
         <SimpleGrid cols={{ base: 1, xs: 2, sm: 3 }} spacing="md">
           {locs.map((loc) => {
-            const locCats = cats.filter((c) => c.locationId === loc.id)
-            const leafCount = locCats.filter((c) => !cats.some((ch) => ch.parentId === c.id)).length
+            const leafCount = cats.filter((c) => c.locationId === loc.id && !parentIds.has(c.id)).length
             return (
               <UnstyledButton key={loc.id} onClick={() => setSelectedLocationId(loc.id)}>
-                <Paper
-                  withBorder
-                  p="xl"
-                  radius="md"
-                  style={{
-                    cursor: "pointer",
-                    transition: "border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "var(--mantine-color-blue-6)"
-                    e.currentTarget.style.transform = "translateY(-2px)"
-                    e.currentTarget.style.boxShadow = "var(--mantine-shadow-md)"
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = ""
-                    e.currentTarget.style.transform = ""
-                    e.currentTarget.style.boxShadow = ""
-                  }}
-                >
+                <Paper withBorder p="xl" radius="md" className={locationCardClasses.card}>
                   <Stack align="center" gap="sm">
                     <IconMapPin size={32} stroke={1.5} color="var(--mantine-color-blue-6)" />
                     <Text fw={600} size="lg" ta="center">{loc.name}</Text>

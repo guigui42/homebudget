@@ -1,0 +1,11 @@
+.card {
+  cursor: pointer;
+  transition: border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.card:hover,
+.card:focus-visible {
+  border-color: var(--mantine-color-blue-6);
+  transform: translateY(-2px);
+  box-shadow: var(--mantine-shadow-md);
+}

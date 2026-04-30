@@ -39,6 +39,7 @@ import { locations as locationsApi, categories as categoriesApi } from "../../ap
 import type { Location, ExpenseCategory } from "../../api/client"
 import { SortableCategoryItem } from "./SortableCategoryItem"
 import { CategoryDraftRow, type DraftData } from "./CategoryDraftRow"
+import classes from "../LocationCard.module.css"
 
 type ActiveDraft =
   | null
@@ -275,31 +276,13 @@ export function CategoriesTab() {
         <Title order={4} mb="md">Expense Categories</Title>
         <SimpleGrid cols={{ base: 1, xs: 2, sm: 3 }} spacing="md">
           {locs.map((loc) => {
-            const catCount = items.filter((c) => c.locationId === loc.id && c.parentId === null).length
+            const catCount = items.filter((c) => c.locationId === loc.id).length
             return (
               <UnstyledButton
                 key={loc.id}
                 onClick={() => setSelectedLocationId(loc.id)}
               >
-                <Paper
-                  withBorder
-                  p="xl"
-                  radius="md"
-                  style={{
-                    cursor: "pointer",
-                    transition: "border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "var(--mantine-color-blue-6)"
-                    e.currentTarget.style.transform = "translateY(-2px)"
-                    e.currentTarget.style.boxShadow = "var(--mantine-shadow-md)"
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = ""
-                    e.currentTarget.style.transform = ""
-                    e.currentTarget.style.boxShadow = ""
-                  }}
-                >
+                <Paper withBorder p="xl" radius="md" className={classes.card}>
                   <Stack align="center" gap="sm">
                     <IconMapPin size={32} stroke={1.5} color="var(--mantine-color-blue-6)" />
                     <Text fw={600} size="lg" ta="center">{loc.name}</Text>
