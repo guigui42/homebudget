@@ -72,31 +72,39 @@ export function CategoriesTab() {
   const [addingPriceTo, setAddingPriceTo] = useState<number | null>(null)
   const [priceForm, setPriceForm] = useState({ amount: "" as number | string, effectiveFrom: todayStr() as string, note: "" })
 
-  const load = useCallback(() => {
-    locationsApi.list().then(setLocs)
-    categoriesApi.listAll().then(setItems)
-  }, [])
-  useEffect(load, [load])
-
-  // Load prices when a location is selected
+  // Load prices when a location is selected (leaves only)
   const loadPricesForLocation = useCallback(async (locationId: number, catList: ExpenseCategory[]) => {
     const locCats = catList.filter((c) => c.locationId === locationId)
     const leaves = locCats.filter((c) => !locCats.some((ch) => ch.parentId === c.id))
-    // Also include groups that might have legacy price data
-    const withPrices = new Set(leaves.map((c) => c.id))
-    const groups = locCats.filter((c) => !withPrices.has(c.id))
-    const allToFetch = [...leaves, ...groups]
     const entries = await Promise.all(
-      allToFetch.map((c) => pricesApi.history(c.id).then((h) => [c.id, h] as const)),
+      leaves.map((c) => pricesApi.history(c.id).then((h) => [c.id, h] as const)),
     )
-    setAllPrices(Object.fromEntries(entries))
+    return Object.fromEntries(entries) as Record<number, PriceEntry[]>
   }, [])
 
-  useEffect(() => {
-    if (selectedLocationId != null && items.length > 0) {
-      loadPricesForLocation(selectedLocationId, items)
+  const load = useCallback(async () => {
+    locationsApi.list().then(setLocs)
+    const cats = await categoriesApi.listAll()
+    setItems(cats)
+    // Refresh prices for the currently selected location after category changes
+    if (selectedLocationId != null) {
+      const fresh = await loadPricesForLocation(selectedLocationId, cats)
+      setAllPrices(fresh)
     }
-  }, [selectedLocationId, items, loadPricesForLocation])
+  }, [selectedLocationId, loadPricesForLocation])
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (selectedLocationId == null || items.length === 0) return
+    let stale = false
+    loadPricesForLocation(selectedLocationId, items).then((result) => {
+      if (!stale) setAllPrices(result)
+    })
+    return () => { stale = true }
+  }, [selectedLocationId, loadPricesForLocation]) // eslint-disable-line react-hooks/exhaustive-deps
+  // items excluded: price fetch should only re-trigger on location change,
+  // not on every category reorder/edit. Individual price updates are handled
+  // incrementally via setAllPrices in submitAddPrice/confirmDeletePrice.
 
   // Reset price state on location change
   useEffect(() => {
