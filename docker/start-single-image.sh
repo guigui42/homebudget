@@ -25,7 +25,7 @@ if [ -n "${DATABASE_URL:-}" ]; then
   echo "Migrations complete."
 fi
 
-bun run /app/apps/api/src/main.ts &
+bun /app/dist/main.js &
 api_pid=$!
 
 nginx -g 'daemon off;' &
