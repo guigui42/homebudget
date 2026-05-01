@@ -11,4 +11,8 @@ const url =
 export const PgLive = PgClient.layer({
   url: Redacted.make(url),
   transformResultNames: snakeToCamel,
+  // Recycle connections to prevent stale/dead connections after long uptime
+  connectionTTL: "5 minutes",
+  idleTimeout: "30 seconds",
+  connectTimeout: "5 seconds",
 })
