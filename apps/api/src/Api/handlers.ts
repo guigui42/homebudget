@@ -9,7 +9,7 @@ import { fetchLatestEurPhp } from "../Services/EcbService.js"
 // Locations
 // ---------------------------------------------------------------------------
 
-const orDieLog = <A, E>(effect: Effect.Effect<A, E>) =>
+const orDieLog = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.tapErrorCause(Effect.logError), Effect.orDie)
 
 export const LocationsLive = HttpApiBuilder.group(
