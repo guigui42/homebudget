@@ -127,6 +127,7 @@ function NodeRect({
   onEnter,
   onLeave,
   onMove,
+  onClick,
 }: {
   node: SNode
   containerWidth: number
@@ -138,6 +139,7 @@ function NodeRect({
   onEnter: () => void
   onLeave: () => void
   onMove: (e: React.MouseEvent) => void
+  onClick: () => void
 }) {
   const x0 = node.x0 ?? 0
   const x1 = node.x1 ?? 0
@@ -157,6 +159,7 @@ function NodeRect({
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
       onMouseMove={onMove}
+      onClick={onClick}
       style={{ cursor: "pointer" }}
     >
       <rect
@@ -293,6 +296,105 @@ function Tooltip({ state, isDark }: { state: TooltipState | null; isDark: boolea
 }
 
 // ---------------------------------------------------------------------------
+// Drill-in filtering
+// ---------------------------------------------------------------------------
+
+/** Filter graph to show only the focused node and its direct neighbors */
+function filterDataForDrill(
+  data: SankeyApiData,
+  focusId: string,
+): SankeyApiData {
+  const keepNodes = new Set<string>([focusId])
+  const keepLinks: typeof data.links = []
+
+  for (const link of data.links) {
+    if (link.source === focusId || link.target === focusId) {
+      keepNodes.add(link.source)
+      keepNodes.add(link.target)
+      keepLinks.push(link)
+    }
+  }
+
+  return {
+    ...data,
+    nodes: data.nodes.filter((n) => keepNodes.has(n.id)),
+    links: keepLinks,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Breadcrumb
+// ---------------------------------------------------------------------------
+
+interface BreadcrumbEntry {
+  id: string
+  name: string
+}
+
+function Breadcrumb({
+  entries,
+  onNavigate,
+  isDark,
+}: {
+  entries: BreadcrumbEntry[]
+  onNavigate: (depth: number) => void
+  isDark: boolean
+}) {
+  if (entries.length === 0) return null
+
+  const bg = isDark ? "rgba(30, 30, 36, 0.85)" : "rgba(255, 255, 255, 0.9)"
+  const border = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"
+  const linkColor = isDark ? "#7aa2f7" : "#4c6ef5"
+  const textColor = isDark ? "#c9cdd1" : "#333"
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "6px 12px",
+        marginBottom: 8,
+        borderRadius: 8,
+        background: bg,
+        border: `1px solid ${border}`,
+        fontSize: 13,
+        fontWeight: 500,
+        flexWrap: "wrap",
+      }}
+    >
+      <span
+        onClick={() => onNavigate(-1)}
+        style={{ cursor: "pointer", color: linkColor, userSelect: "none" }}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === "Enter" && onNavigate(-1)}
+      >
+        All
+      </span>
+      {entries.map((entry, i) => (
+        <span key={entry.id} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <span style={{ color: isDark ? "#555" : "#aaa" }}>›</span>
+          {i < entries.length - 1 ? (
+            <span
+              onClick={() => onNavigate(i)}
+              style={{ cursor: "pointer", color: linkColor, userSelect: "none" }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === "Enter" && onNavigate(i)}
+            >
+              {entry.name}
+            </span>
+          ) : (
+            <span style={{ color: textColor }}>{entry.name}</span>
+          )}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -311,29 +413,81 @@ export function SankeyChart({ data, width = 900, height = 500 }: Props) {
 
   const [hover, setHover] = useState<HoverTarget>(null)
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
+  const [drillStack, setDrillStack] = useState<BreadcrumbEntry[]>([])
+
+  // Reset drill stack when data changes (e.g. date picker)
+  const dataRef = useRef(data)
+  if (dataRef.current !== data) {
+    dataRef.current = data
+    if (drillStack.length > 0) setDrillStack([])
+  }
+
+  const nodeNameMap = useMemo(
+    () => new Map(data.nodes.map((n) => [n.id, n.name])),
+    [data],
+  )
+
+  // Apply drill filter
+  const visibleData = useMemo(() => {
+    if (drillStack.length === 0) return data
+    const focusId = drillStack[drillStack.length - 1]!.id
+    return filterDataForDrill(data, focusId)
+  }, [data, drillStack])
+
+  const drillInto = useCallback(
+    (nodeId: string) => {
+      // Don't drill if node has no connections in current view (leaf with no children)
+      const hasLinks = visibleData.links.some(
+        (l) => l.source === nodeId || l.target === nodeId,
+      )
+      if (!hasLinks) return
+
+      // Don't drill if already focused on this node
+      if (drillStack.length > 0 && drillStack[drillStack.length - 1]!.id === nodeId) return
+
+      const name = nodeNameMap.get(nodeId) ?? nodeId
+      setDrillStack((prev) => [...prev, { id: nodeId, name }])
+      setHover(null)
+      setTooltip(null)
+    },
+    [visibleData.links, drillStack, nodeNameMap],
+  )
+
+  const navigateBreadcrumb = useCallback((depth: number) => {
+    // depth = -1 means "All" (reset), otherwise keep entries 0..depth
+    setDrillStack((prev) => (depth < 0 ? [] : prev.slice(0, depth + 1)))
+    setHover(null)
+    setTooltip(null)
+  }, [])
+
+  // Compute height based on visible nodes when drilled in
+  const effectiveHeight = useMemo(() => {
+    if (drillStack.length === 0) return height
+    return Math.max(300, Math.min(height, visibleData.nodes.length * 50))
+  }, [drillStack.length, height, visibleData.nodes.length])
 
   // Estimate margins from longest label per side
   const marginLeft = useMemo(() => {
-    const leftNodes = data.nodes.filter(
-      (n) => !data.links.some((l) => l.target === n.id),
+    const leftNodes = visibleData.nodes.filter(
+      (n) => !visibleData.links.some((l) => l.target === n.id),
     )
     const maxLen = Math.max(0, ...leftNodes.map((n) => `${n.name}  ${formatEur(n.value)}`.length))
     return Math.min(Math.max(maxLen * 7.5 + 16, 80), 260)
-  }, [data])
+  }, [visibleData])
 
   const marginRight = useMemo(() => {
-    const rightNodes = data.nodes.filter(
-      (n) => !data.links.some((l) => l.source === n.id),
+    const rightNodes = visibleData.nodes.filter(
+      (n) => !visibleData.links.some((l) => l.source === n.id),
     )
     const maxLen = Math.max(0, ...rightNodes.map((n) => `${n.name}  ${formatEur(n.value)}`.length))
     return Math.min(Math.max(maxLen * 7.5 + 16, 80), 260)
-  }, [data])
+  }, [visibleData])
 
   const layout = useMemo(() => {
-    const graph = buildGraph(data)
+    const graph = buildGraph(visibleData)
     if (!graph) return null
-    return computeLayout(graph, width, height, marginLeft, marginRight)
-  }, [data, width, height, marginLeft, marginRight])
+    return computeLayout(graph, width, effectiveHeight, marginLeft, marginRight)
+  }, [visibleData, width, effectiveHeight, marginLeft, marginRight])
 
   const connectivity = useMemo(
     () => (layout ? buildConnectivity(layout.links) : null),
@@ -391,11 +545,12 @@ export function SankeyChart({ data, width = 900, height = 500 }: Props) {
 
   return (
     <div ref={containerRef} style={{ position: "relative" }}>
+      <Breadcrumb entries={drillStack} onNavigate={navigateBreadcrumb} isDark={isDark} />
       <svg
         width={width}
-        height={height}
+        height={effectiveHeight}
         role="img"
-        aria-label={`Budget flow: ${data.nodes.length} categories across income and expenses`}
+        aria-label={`Budget flow: ${visibleData.nodes.length} categories`}
         style={{ display: "block" }}
         onMouseLeave={clearHover}
       >
@@ -436,6 +591,7 @@ export function SankeyChart({ data, width = 900, height = 500 }: Props) {
               highlighted={highlightedNodes.has(node.id)}
               onEnter={() => setHover({ kind: "node", id: node.id })}
               onLeave={clearHover}
+              onClick={() => drillInto(node.id)}
               onMove={(e) => {
                 const incoming = (node.targetLinks as SLink[]) ?? []
                 const outgoing = (node.sourceLinks as SLink[]) ?? []
@@ -445,6 +601,9 @@ export function SankeyChart({ data, width = 900, height = 500 }: Props) {
                 }
                 if (outgoing.length > 0) {
                   lines.push(`→ ${outgoing.map((l) => (l.target as SNode).name).join(", ")}`)
+                }
+                if (outgoing.length > 0 || incoming.length > 1) {
+                  lines.push("Click to drill in")
                 }
                 updateTooltip(e, lines)
               }}
