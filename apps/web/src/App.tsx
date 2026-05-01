@@ -29,6 +29,9 @@ import {
 import { SankeyPage } from "./pages/SankeyPage.js"
 import { EvolutionPage } from "./pages/EvolutionPage.js"
 import { SettingsPage } from "./pages/SettingsPage.js"
+import { NotFoundPage } from "./pages/NotFoundPage.js"
+import { ErrorBoundary } from "./components/ErrorBoundary.js"
+import { useGlobalErrorHandler } from "./hooks/useGlobalErrorHandler.js"
 
 const theme = createTheme({
   fontFamily: '"Outfit", sans-serif',
@@ -147,6 +150,7 @@ function Navigation({ onNav }: { onNav?: () => void }) {
 
 export function App() {
   const [opened, { toggle, close }] = useDisclosure()
+  useGlobalErrorHandler()
 
   return (
     <MantineProvider defaultColorScheme="auto" theme={theme}>
@@ -180,11 +184,14 @@ export function App() {
           </AppShell.Header>
           <Navigation onNav={close} />
           <AppShell.Main>
-            <Routes>
-              <Route path="/" element={<SankeyPage />} />
-              <Route path="/evolution" element={<EvolutionPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-            </Routes>
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/" element={<SankeyPage />} />
+                <Route path="/evolution" element={<EvolutionPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </ErrorBoundary>
           </AppShell.Main>
         </AppShell>
       </BrowserRouter>

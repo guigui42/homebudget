@@ -12,6 +12,9 @@ import {
   SankeyLive,
   EvolutionLive,
 } from "./Api/handlers.js"
+import { EcbServiceLive } from "./Services/EcbService.js"
+import { SankeyServiceLive } from "./Services/SankeyService.js"
+import { LoggerLive } from "./Logger.js"
 
 const ApiLive = HttpApiBuilder.api(HomeBudgetApi)
 
@@ -24,13 +27,19 @@ const ServerLive = HttpApiBuilder.serve().pipe(
   Layer.provide(PricesLive),
   Layer.provide(ExchangeRatesLive),
   Layer.provide(SankeyLive),
+  Layer.provide(SankeyServiceLive),
   Layer.provide(EvolutionLive),
   Layer.provide(BunHttpServer.layer({ port: 3210 })),
   Layer.provide(PgLive),
+  Layer.provide(EcbServiceLive),
   Layer.provide(FetchHttpClient.layer),
+  Layer.provide(LoggerLive),
 )
 
 Layer.launch(ServerLive).pipe(
+  Effect.tap(() =>
+    Effect.logInfo(`Server started on port 3210 (env=${process.env.NODE_ENV ?? "development"})`)
+  ),
   Effect.tapErrorCause(Effect.logError),
   Effect.runFork,
 )

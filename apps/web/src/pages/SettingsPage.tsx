@@ -40,6 +40,7 @@ import {
   locations,
   salary,
   exchangeRates,
+  ApiError,
 } from "../api/client"
 import type {
   Location,
@@ -55,6 +56,12 @@ function parseFinite(v: number | string): number | undefined {
   return Number.isFinite(n) ? n : undefined
 }
 
+function errorMsg(e: unknown, fallback: string): string {
+  if (e instanceof ApiError && e.body?.message) return e.body.message
+  if (e instanceof Error) return e.message
+  return fallback
+}
+
 // ---------------------------------------------------------------------------
 // Locations Tab
 // ---------------------------------------------------------------------------
@@ -66,7 +73,11 @@ function LocationsTab() {
   const [form, setForm] = useState({ name: "", country: "", currency: "EUR" })
 
   const load = useCallback(() => {
-    locations.list().then((data) => { setItems(data); setLoading(false) }).catch(() => setLoading(false))
+    locations.list().then((data) => { setItems(data); setLoading(false) }).catch((e) => {
+      console.error("Failed to load locations:", e)
+      notifications.show({ title: "Error", message: errorMsg(e, "Failed to load locations"), color: "red", icon: <IconX size={16} /> })
+      setLoading(false)
+    })
   }, [])
   useEffect(load, [load])
 
@@ -79,7 +90,7 @@ function LocationsTab() {
       load()
     } catch (e) {
       console.error("Failed to create location:", e)
-      notifications.show({ title: "Error", message: "Failed to create location", color: "red", icon: <IconX size={16} /> })
+      notifications.show({ title: "Error", message: errorMsg(e, "Failed to create location"), color: "red", icon: <IconX size={16} /> })
     }
   }
 
@@ -133,7 +144,7 @@ function LocationsTab() {
                             load()
                           } catch (e) {
                             console.error('Failed to delete location:', e)
-                            notifications.show({ title: "Error", message: "Failed to delete location", color: "red", icon: <IconX size={16} /> })
+                            notifications.show({ title: "Error", message: errorMsg(e, "Failed to delete location"), color: "red", icon: <IconX size={16} /> })
                           }
                         },
                       })}>
@@ -173,7 +184,11 @@ function SalaryTab() {
   const [form, setForm] = useState({ amount: 0 as number | string, effectiveFrom: "" as string, note: "" })
 
   const load = useCallback(() => {
-    salary.history().then((data) => { setItems(data); setLoading(false) }).catch(() => setLoading(false))
+    salary.history().then((data) => { setItems(data); setLoading(false) }).catch((e) => {
+      console.error("Failed to load salary history:", e)
+      notifications.show({ title: "Error", message: errorMsg(e, "Failed to load salary history"), color: "red", icon: <IconX size={16} /> })
+      setLoading(false)
+    })
   }, [])
   useEffect(load, [load])
 
@@ -188,7 +203,7 @@ function SalaryTab() {
       load()
     } catch (e) {
       console.error("Failed to create salary entry:", e)
-      notifications.show({ title: "Error", message: "Failed to create salary entry", color: "red", icon: <IconX size={16} /> })
+      notifications.show({ title: "Error", message: errorMsg(e, "Failed to create salary entry"), color: "red", icon: <IconX size={16} /> })
     }
   }
 
@@ -244,7 +259,7 @@ function SalaryTab() {
                             load()
                           } catch (e) {
                             console.error('Failed to delete salary entry:', e)
-                            notifications.show({ title: "Error", message: "Failed to delete salary entry", color: "red", icon: <IconX size={16} /> })
+                            notifications.show({ title: "Error", message: errorMsg(e, "Failed to delete salary entry"), color: "red", icon: <IconX size={16} /> })
                           }
                         },
                       })}>
@@ -289,7 +304,11 @@ function ExchangeRatesTab() {
   const [fetching, setFetching] = useState(false)
 
   const load = useCallback(() => {
-    exchangeRates.history().then((data) => { setItems(data); setLoading(false) }).catch(() => setLoading(false))
+    exchangeRates.history().then((data) => { setItems(data); setLoading(false) }).catch((e) => {
+      console.error("Failed to load exchange rate history:", e)
+      notifications.show({ title: "Error", message: errorMsg(e, "Failed to load exchange rates"), color: "red", icon: <IconX size={16} /> })
+      setLoading(false)
+    })
   }, [])
   useEffect(load, [load])
 
@@ -304,7 +323,7 @@ function ExchangeRatesTab() {
       load()
     } catch (e) {
       console.error("Failed to create exchange rate:", e)
-      notifications.show({ title: "Error", message: "Failed to create exchange rate", color: "red", icon: <IconX size={16} /> })
+      notifications.show({ title: "Error", message: errorMsg(e, "Failed to create exchange rate"), color: "red", icon: <IconX size={16} /> })
     }
   }
 
@@ -316,7 +335,7 @@ function ExchangeRatesTab() {
       load()
     } catch (e) {
       console.error("Failed to fetch ECB rate:", e)
-      notifications.show({ title: "Error", message: "Failed to fetch ECB rate", color: "red", icon: <IconX size={16} /> })
+      notifications.show({ title: "Error", message: errorMsg(e, "Failed to fetch ECB rate"), color: "red", icon: <IconX size={16} /> })
     } finally {
       setFetching(false)
     }
@@ -377,7 +396,7 @@ function ExchangeRatesTab() {
                             load()
                           } catch (e) {
                             console.error('Failed to delete exchange rate:', e)
-                            notifications.show({ title: "Error", message: "Failed to delete exchange rate", color: "red", icon: <IconX size={16} /> })
+                            notifications.show({ title: "Error", message: errorMsg(e, "Failed to delete exchange rate"), color: "red", icon: <IconX size={16} /> })
                           }
                         },
                       })}>

@@ -1,3 +1,18 @@
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly statusText: string,
+    public readonly body: { _tag?: string; error?: string; message?: string } | null,
+  ) {
+    super(`API error ${status}: ${body?.message ?? body?.error ?? statusText}`)
+    this.name = "ApiError"
+  }
+
+  get isNotFound() { return this.status === 404 }
+  get isValidation() { return this.status === 422 }
+  get isServerError() { return this.status >= 500 }
+}
+
 const API_BASE = "/api"
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -9,13 +24,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     },
   })
   if (!res.ok) {
-    let errorMessage = `API error: ${res.status} ${res.statusText}`
+    let body: { _tag?: string; error?: string; message?: string } | null = null
     try {
-      const errorBody = await res.json()
-      if (errorBody.error) errorMessage += `: ${errorBody.error}`
-      else if (errorBody.message) errorMessage += `: ${errorBody.message}`
+      body = await res.json()
     } catch {}
-    throw new Error(errorMessage)
+    throw new ApiError(res.status, res.statusText, body)
   }
   if (res.status === 204 || res.headers.get("content-length") === "0") {
     return undefined as T

@@ -21,6 +21,7 @@ const LocationsApi = HttpApiGroup.make("locations")
       .setPath(S.IdParam)
       .setPayload(S.UpdateLocation)
       .addSuccess(S.Location)
+      .addError(S.NotFoundError, { status: 404 })
   )
   .add(
     HttpApiEndpoint.del("remove", "/api/locations/:id")
@@ -51,6 +52,7 @@ const CategoriesApi = HttpApiGroup.make("categories")
       .setPath(S.IdParam)
       .setPayload(S.UpdateExpenseCategory)
       .addSuccess(S.ExpenseCategory)
+      .addError(S.NotFoundError, { status: 404 })
   )
   .add(
     HttpApiEndpoint.del("remove", "/api/categories/:id")
@@ -60,6 +62,7 @@ const CategoriesApi = HttpApiGroup.make("categories")
     HttpApiEndpoint.post("reorder", "/api/categories/reorder")
       .setPayload(S.ReorderCategories)
       .addSuccess(Schema.Array(S.ExpenseCategory))
+      .addError(S.ValidationError, { status: 422 })
   )
 
 // ---------------------------------------------------------------------------
@@ -106,6 +109,7 @@ const PricesApi = HttpApiGroup.make("prices")
       .setPath(S.IdParam)
       .setPayload(S.UpdatePriceEntry)
       .addSuccess(S.PriceEntry)
+      .addError(S.NotFoundError, { status: 404 })
   )
   .add(
     HttpApiEndpoint.del("remove", "/api/prices/:id")
@@ -134,6 +138,7 @@ const ExchangeRatesApi = HttpApiGroup.make("exchangeRates")
   .add(
     HttpApiEndpoint.post("fetch", "/api/exchange-rates/fetch")
       .addSuccess(S.ExchangeRateEntry)
+      .addError(S.ExternalServiceError, { status: 502 })
   )
   .add(
     HttpApiEndpoint.del("remove", "/api/exchange-rates/:id")
@@ -192,6 +197,7 @@ const EvolutionApi = HttpApiGroup.make("evolution")
 // ---------------------------------------------------------------------------
 
 export const HomeBudgetApi = HttpApi.make("homebudget")
+  .addError(S.InternalError, { status: 500 })
   .add(LocationsApi)
   .add(CategoriesApi)
   .add(SalaryApi)
