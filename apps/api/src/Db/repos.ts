@@ -60,7 +60,7 @@ export const updateLocation = (id: number, input: Schemas.UpdateLocation) =>
       RETURNING id, name, country, currency, sort_order, created_at::text
     `
     const row = rows[0]
-    if (!row) return yield* Effect.die(new Error("Expected RETURNING clause to produce a row"))
+    if (!row) return yield* Effect.fail(new Schemas.NotFoundError({ message: `Location with id ${id} not found` }))
     return row
   })
 
@@ -130,7 +130,7 @@ export const updateCategory = (id: number, input: Schemas.UpdateExpenseCategory)
       RETURNING id, location_id, parent_id, name, frequency, color, sort_order, created_at::text
     `
     const row = rows[0]
-    if (!row) return yield* Effect.die(new Error("Expected RETURNING clause to produce a row"))
+    if (!row) return yield* Effect.fail(new Schemas.NotFoundError({ message: `Category with id ${id} not found` }))
     return row
   })
 
@@ -294,7 +294,7 @@ export const updatePrice = (id: number, input: Schemas.UpdatePriceEntry) =>
       RETURNING id, expense_category_id, amount::float8, currency, effective_from::text, note, created_at::text
     `
     const row = rows[0]
-    if (!row) return yield* Effect.die(new Error("Expected RETURNING clause to produce a row"))
+    if (!row) return yield* Effect.fail(new Schemas.NotFoundError({ message: `Price with id ${id} not found` }))
     return row
   })
 

@@ -185,7 +185,9 @@ export const SankeyServiceLive = Layer.effect(
       computeSankey: (date: string) =>
         computeSankeyImpl(date).pipe(
           Effect.provideService(SqlClient.SqlClient, sql),
-          Effect.tapError((e) => Effect.logError("sankey computation failed", e)),
+          Effect.tapError((e) =>
+            Effect.logError({ message: "sankey computation failed", error: e })
+          ),
           Effect.orDie
         ),
     })

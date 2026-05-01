@@ -4,7 +4,7 @@ import { HomeBudgetApi, Schemas, Domain } from "@homebudget/shared"
 import * as Repo from "../Db/repos.js"
 import { SankeyService } from "../Services/SankeyService.js"
 import { EcbService } from "../Services/EcbService.js"
-import { logAndDie } from "./errorHandling.js"
+import { logAndDie, logAndDieUnlessNotFound } from "./errorHandling.js"
 
 // ---------------------------------------------------------------------------
 // Locations
@@ -20,7 +20,7 @@ export const LocationsLive = HttpApiBuilder.group(
         logAndDie(Repo.createLocation(payload), "create location")
       )
       .handle("update", ({ path, payload }) =>
-        logAndDie(Repo.updateLocation(path.id, payload), "update location")
+        logAndDieUnlessNotFound(Repo.updateLocation(path.id, payload), "update location")
       )
       .handle("remove", ({ path }) =>
         logAndDie(Repo.removeLocation(path.id), "remove location")
@@ -46,14 +46,14 @@ export const CategoriesLive = HttpApiBuilder.group(
         logAndDie(Repo.createCategory(payload), "create category")
       )
       .handle("update", ({ path, payload }) =>
-        logAndDie(Repo.updateCategory(path.id, payload), "update category")
+        logAndDieUnlessNotFound(Repo.updateCategory(path.id, payload), "update category")
       )
       .handle("remove", ({ path }) =>
         logAndDie(Repo.removeCategory(path.id), "remove category")
       )
       .handle("reorder", ({ payload }) =>
         Repo.reorderCategories(payload.items).pipe(
-          Effect.tapError((e) => Effect.logError("reorder categories", e)),
+          Effect.tapError((e) => Effect.logError({ message: "reorder categories", error: e })),
           Effect.catchAll((error) =>
             error instanceof Schemas.ValidationError
               ? Effect.fail(error)
@@ -77,7 +77,7 @@ export const SalaryLive = HttpApiBuilder.group(
       )
       .handle("current", () =>
         Repo.currentSalary.pipe(
-          Effect.tapError((e) => Effect.logError("fetch current salary", e)),
+          Effect.tapError((e) => Effect.logError({ message: "fetch current salary", error: e })),
           Effect.orDie,
           Effect.flatMap((entry) =>
             entry
@@ -110,7 +110,7 @@ export const PricesLive = HttpApiBuilder.group(
         logAndDie(Repo.createPrice(payload), "create price")
       )
       .handle("update", ({ path, payload }) =>
-        logAndDie(Repo.updatePrice(path.id, payload), "update price")
+        logAndDieUnlessNotFound(Repo.updatePrice(path.id, payload), "update price")
       )
       .handle("remove", ({ path }) =>
         logAndDie(Repo.removePrice(path.id), "remove price")
@@ -131,7 +131,9 @@ export const ExchangeRatesLive = HttpApiBuilder.group(
       )
       .handle("current", () =>
         Repo.currentExchangeRate.pipe(
-          Effect.tapError((e) => Effect.logError("fetch current exchange rate", e)),
+          Effect.tapError((e) =>
+            Effect.logError({ message: "fetch current exchange rate", error: e })
+          ),
           Effect.orDie,
           Effect.flatMap((entry) =>
             entry
