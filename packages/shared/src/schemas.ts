@@ -10,6 +10,11 @@ export class NotFoundError extends Schema.TaggedError<NotFoundError>("NotFoundEr
   { message: Schema.String },
 ) {}
 
+export class ValidationError extends Schema.TaggedError<ValidationError>("ValidationError")(
+  "ValidationError",
+  { message: Schema.String },
+) {}
+
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------

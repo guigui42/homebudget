@@ -1,9 +1,17 @@
-import { Effect } from "effect"
+import { SqlClient } from "@effect/sql"
 import { Domain } from "@homebudget/shared"
+import { Context, Effect, Layer } from "effect"
 import type { Schemas } from "@homebudget/shared"
 import * as Repo from "../Db/repos.js"
 
-export const computeSankey = (date: string) =>
+export class SankeyService extends Context.Tag("SankeyService")<
+  SankeyService,
+  {
+    readonly computeSankey: (date: string) => Effect.Effect<Schemas.SankeyData>
+  }
+>() {}
+
+const computeSankeyImpl = (date: string) =>
   Effect.gen(function* () {
     const salary = yield* Repo.salaryAtDate(date)
     if (!salary) {
@@ -168,3 +176,17 @@ export const computeSankey = (date: string) =>
       exchangeRates,
     } satisfies Schemas.SankeyData
   })
+
+export const SankeyServiceLive = Layer.effect(
+  SankeyService,
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    return SankeyService.of({
+      computeSankey: (date: string) =>
+        computeSankeyImpl(date).pipe(
+          Effect.provideService(SqlClient.SqlClient, sql),
+          Effect.orDie
+        ),
+    })
+  })
+)

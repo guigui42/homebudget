@@ -2,27 +2,26 @@ import { HttpApiBuilder } from "@effect/platform"
 import { Effect } from "effect"
 import { HomeBudgetApi, Schemas, Domain } from "@homebudget/shared"
 import * as Repo from "../Db/repos.js"
-import { computeSankey } from "../Services/SankeyService.js"
-import { fetchLatestEurPhp } from "../Services/EcbService.js"
+import { SankeyService } from "../Services/SankeyService.js"
+import { EcbService } from "../Services/EcbService.js"
 
 // ---------------------------------------------------------------------------
 // Locations
 // ---------------------------------------------------------------------------
-
-const orDieLog = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-  effect.pipe(Effect.tapErrorCause(Effect.logError), Effect.orDie)
 
 export const LocationsLive = HttpApiBuilder.group(
   HomeBudgetApi,
   "locations",
   (handlers) =>
     handlers
-      .handle("list", () => orDieLog(Repo.listLocations))
-      .handle("create", ({ payload }) => orDieLog(Repo.createLocation(payload)))
-      .handle("update", ({ path, payload }) =>
-        orDieLog(Repo.updateLocation(path.id, payload))
+      .handle("list", () => Repo.listLocations.pipe(Effect.orDie))
+      .handle("create", ({ payload }) =>
+        Repo.createLocation(payload).pipe(Effect.orDie)
       )
-      .handle("remove", ({ path }) => orDieLog(Repo.removeLocation(path.id)))
+      .handle("update", ({ path, payload }) =>
+        Repo.updateLocation(path.id, payload).pipe(Effect.orDie)
+      )
+      .handle("remove", ({ path }) => Repo.removeLocation(path.id).pipe(Effect.orDie))
 )
 
 // ---------------------------------------------------------------------------
@@ -35,16 +34,24 @@ export const CategoriesLive = HttpApiBuilder.group(
   (handlers) =>
     handlers
       .handle("listByLocation", ({ path }) =>
-        orDieLog(Repo.listCategoriesByLocation(path.locationId))
+        Repo.listCategoriesByLocation(path.locationId).pipe(Effect.orDie)
       )
-      .handle("listAll", () => orDieLog(Repo.listAllCategories))
-      .handle("create", ({ payload }) => orDieLog(Repo.createCategory(payload)))
+      .handle("listAll", () => Repo.listAllCategories.pipe(Effect.orDie))
+      .handle("create", ({ payload }) =>
+        Repo.createCategory(payload).pipe(Effect.orDie)
+      )
       .handle("update", ({ path, payload }) =>
-        orDieLog(Repo.updateCategory(path.id, payload))
+        Repo.updateCategory(path.id, payload).pipe(Effect.orDie)
       )
-      .handle("remove", ({ path }) => orDieLog(Repo.removeCategory(path.id)))
+      .handle("remove", ({ path }) => Repo.removeCategory(path.id).pipe(Effect.orDie))
       .handle("reorder", ({ payload }) =>
-        orDieLog(Repo.reorderCategories(payload.items))
+        Repo.reorderCategories(payload.items).pipe(
+          Effect.catchAll((error) =>
+            error instanceof Schemas.ValidationError
+              ? Effect.fail(error)
+              : Effect.die(error)
+          )
+        )
       )
 )
 
@@ -57,9 +64,10 @@ export const SalaryLive = HttpApiBuilder.group(
   "salary",
   (handlers) =>
     handlers
-      .handle("history", () => orDieLog(Repo.salaryHistory))
+      .handle("history", () => Repo.salaryHistory.pipe(Effect.orDie))
       .handle("current", () =>
-        orDieLog(Repo.currentSalary).pipe(
+        Repo.currentSalary.pipe(
+          Effect.orDie,
           Effect.flatMap((entry) =>
             entry
               ? Effect.succeed(entry)
@@ -67,8 +75,8 @@ export const SalaryLive = HttpApiBuilder.group(
           )
         )
       )
-      .handle("create", ({ payload }) => orDieLog(Repo.createSalary(payload)))
-      .handle("remove", ({ path }) => orDieLog(Repo.removeSalary(path.id)))
+      .handle("create", ({ payload }) => Repo.createSalary(payload).pipe(Effect.orDie))
+      .handle("remove", ({ path }) => Repo.removeSalary(path.id).pipe(Effect.orDie))
 )
 
 // ---------------------------------------------------------------------------
@@ -81,13 +89,13 @@ export const PricesLive = HttpApiBuilder.group(
   (handlers) =>
     handlers
       .handle("history", ({ path }) =>
-        orDieLog(Repo.priceHistory(path.categoryId))
+        Repo.priceHistory(path.categoryId).pipe(Effect.orDie)
       )
-      .handle("create", ({ payload }) => orDieLog(Repo.createPrice(payload)))
+      .handle("create", ({ payload }) => Repo.createPrice(payload).pipe(Effect.orDie))
       .handle("update", ({ path, payload }) =>
-        orDieLog(Repo.updatePrice(path.id, payload))
+        Repo.updatePrice(path.id, payload).pipe(Effect.orDie)
       )
-      .handle("remove", ({ path }) => orDieLog(Repo.removePrice(path.id)))
+      .handle("remove", ({ path }) => Repo.removePrice(path.id).pipe(Effect.orDie))
 )
 
 // ---------------------------------------------------------------------------
@@ -99,9 +107,10 @@ export const ExchangeRatesLive = HttpApiBuilder.group(
   "exchangeRates",
   (handlers) =>
     handlers
-      .handle("history", () => orDieLog(Repo.exchangeRateHistory))
+      .handle("history", () => Repo.exchangeRateHistory.pipe(Effect.orDie))
       .handle("current", () =>
-        orDieLog(Repo.currentExchangeRate).pipe(
+        Repo.currentExchangeRate.pipe(
+          Effect.orDie,
           Effect.flatMap((entry) =>
             entry
               ? Effect.succeed(entry)
@@ -110,10 +119,11 @@ export const ExchangeRatesLive = HttpApiBuilder.group(
         )
       )
       .handle("create", ({ payload }) =>
-        orDieLog(Repo.createExchangeRate(payload))
+        Repo.createExchangeRate(payload).pipe(Effect.orDie)
       )
       .handle("fetch", () =>
         Effect.gen(function* () {
+          const { fetchLatestEurPhp } = yield* EcbService
           const { rate, date } = yield* fetchLatestEurPhp
           return yield* Repo.createExchangeRate({
             fromCurrency: "EUR",
@@ -124,7 +134,9 @@ export const ExchangeRatesLive = HttpApiBuilder.group(
           })
         }).pipe(Effect.tapErrorCause(Effect.logError), Effect.orDie)
       )
-      .handle("remove", ({ path }) => orDieLog(Repo.removeExchangeRate(path.id)))
+      .handle("remove", ({ path }) =>
+        Repo.removeExchangeRate(path.id).pipe(Effect.orDie)
+      )
 )
 
 // ---------------------------------------------------------------------------
@@ -138,7 +150,10 @@ export const SankeyLive = HttpApiBuilder.group(
     handlers.handle("getData", ({ urlParams }) => {
       const date =
         urlParams.date || new Date().toISOString().slice(0, 10)
-      return computeSankey(date).pipe(Effect.tapErrorCause(Effect.logError), Effect.orDie)
+      return Effect.gen(function* () {
+        const sankeyService = yield* SankeyService
+        return yield* sankeyService.computeSankey(date)
+      }).pipe(Effect.orDie)
     })
 )
 
@@ -187,7 +202,7 @@ export const EvolutionLive = HttpApiBuilder.group(
             series.points.push({ date: row.effectiveFrom, value: row.amount })
           }
           return { series: Array.from(seriesMap.values()) }
-        }).pipe(Effect.tapErrorCause(Effect.logError), Effect.orDie)
+        }).pipe(Effect.orDie)
       )
       .handle("exchangeRate", ({ urlParams }) =>
         Effect.gen(function* () {
@@ -204,7 +219,7 @@ export const EvolutionLive = HttpApiBuilder.group(
             toCurrency: "PHP" as const,
             points,
           }
-        }).pipe(Effect.tapErrorCause(Effect.logError), Effect.orDie)
+        }).pipe(Effect.orDie)
       )
       .handle("totalByLocation", ({ urlParams }) =>
         Effect.gen(function* () {
@@ -297,6 +312,6 @@ export const EvolutionLive = HttpApiBuilder.group(
               }))
               .filter((s) => s.points.length > 0),
           }
-        }).pipe(Effect.tapErrorCause(Effect.logError), Effect.orDie)
+        }).pipe(Effect.orDie)
       )
 )

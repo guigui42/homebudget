@@ -60,6 +60,7 @@ const CategoriesApi = HttpApiGroup.make("categories")
     HttpApiEndpoint.post("reorder", "/api/categories/reorder")
       .setPayload(S.ReorderCategories)
       .addSuccess(Schema.Array(S.ExpenseCategory))
+      .addError(S.ValidationError, { status: 422 })
   )
 
 // ---------------------------------------------------------------------------

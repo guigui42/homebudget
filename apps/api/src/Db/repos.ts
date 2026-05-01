@@ -1,6 +1,6 @@
 import { Effect } from "effect"
 import { SqlClient } from "@effect/sql"
-import type { Schemas, Domain } from "@homebudget/shared"
+import { Schemas, type Domain } from "@homebudget/shared"
 
 // ---------------------------------------------------------------------------
 // Query result types for JOINed queries
@@ -42,7 +42,9 @@ export const createLocation = (input: Schemas.CreateLocation) =>
       VALUES (${input.name}, ${input.country}, ${input.currency}, ${input.sortOrder})
       RETURNING id, name, country, currency, sort_order, created_at::text
     `
-    return rows[0]!
+    const row = rows[0]
+    if (!row) return yield* Effect.die(new Error("Expected RETURNING clause to produce a row"))
+    return row
   })
 
 export const updateLocation = (id: number, input: Schemas.UpdateLocation) =>
@@ -57,7 +59,9 @@ export const updateLocation = (id: number, input: Schemas.UpdateLocation) =>
       WHERE id = ${id}
       RETURNING id, name, country, currency, sort_order, created_at::text
     `
-    return rows[0]!
+    const row = rows[0]
+    if (!row) return yield* Effect.die(new Error("Expected RETURNING clause to produce a row"))
+    return row
   })
 
 export const removeLocation = (id: number) =>
@@ -105,7 +109,9 @@ export const createCategory = (input: Schemas.CreateExpenseCategory) =>
       )
       RETURNING id, location_id, parent_id, name, frequency, color, sort_order, created_at::text
     `
-    return rows[0]!
+    const row = rows[0]
+    if (!row) return yield* Effect.die(new Error("Expected RETURNING clause to produce a row"))
+    return row
   })
 
 export const updateCategory = (id: number, input: Schemas.UpdateExpenseCategory) =>
@@ -123,7 +129,9 @@ export const updateCategory = (id: number, input: Schemas.UpdateExpenseCategory)
       WHERE id = ${id}
       RETURNING id, location_id, parent_id, name, frequency, color, sort_order, created_at::text
     `
-    return rows[0]!
+    const row = rows[0]
+    if (!row) return yield* Effect.die(new Error("Expected RETURNING clause to produce a row"))
+    return row
   })
 
 export const removeCategory = (id: number) =>
@@ -155,7 +163,7 @@ export const reorderCategories = (items: ReadonlyArray<{ id: number; sortOrder: 
           AND c.location_id != p.location_id
       `
       if (conflicts.length > 0) {
-        return yield* Effect.fail(new Error("Cannot reparent category to a different location"))
+        return yield* Effect.fail(new Schemas.ValidationError({ message: "Cannot reparent category to a different location" }))
       }
     }
 
@@ -223,7 +231,9 @@ export const createSalary = (input: Schemas.CreateSalaryEntry) =>
       VALUES (${input.amount}, ${input.currency}, ${input.effectiveFrom}::date, ${input.note ?? null})
       RETURNING id, amount::float8, currency, effective_from::text, note, created_at::text
     `
-    return rows[0]!
+    const row = rows[0]
+    if (!row) return yield* Effect.die(new Error("Expected RETURNING clause to produce a row"))
+    return row
   })
 
 export const removeSalary = (id: number) =>
@@ -267,7 +277,9 @@ export const createPrice = (input: Schemas.CreatePriceEntry) =>
       VALUES (${input.expenseCategoryId}, ${input.amount}, ${input.currency}, ${input.effectiveFrom}::date, ${input.note ?? null})
       RETURNING id, expense_category_id, amount::float8, currency, effective_from::text, note, created_at::text
     `
-    return rows[0]!
+    const row = rows[0]
+    if (!row) return yield* Effect.die(new Error("Expected RETURNING clause to produce a row"))
+    return row
   })
 
 export const updatePrice = (id: number, input: Schemas.UpdatePriceEntry) =>
@@ -281,7 +293,9 @@ export const updatePrice = (id: number, input: Schemas.UpdatePriceEntry) =>
       WHERE id = ${id}
       RETURNING id, expense_category_id, amount::float8, currency, effective_from::text, note, created_at::text
     `
-    return rows[0]!
+    const row = rows[0]
+    if (!row) return yield* Effect.die(new Error("Expected RETURNING clause to produce a row"))
+    return row
   })
 
 export const removePrice = (id: number) =>
@@ -336,7 +350,9 @@ export const createExchangeRate = (input: Schemas.CreateExchangeRateEntry) =>
       VALUES (${input.fromCurrency}, ${input.toCurrency}, ${input.rate}, ${input.effectiveFrom}::date, ${input.source})
       RETURNING id, from_currency, to_currency, rate::float8, effective_from::text, source, created_at::text
     `
-    return rows[0]!
+    const row = rows[0]
+    if (!row) return yield* Effect.die(new Error("Expected RETURNING clause to produce a row"))
+    return row
   })
 
 export const removeExchangeRate = (id: number) =>
