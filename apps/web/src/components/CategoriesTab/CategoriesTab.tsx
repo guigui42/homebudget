@@ -39,7 +39,7 @@ import { modals } from "@mantine/modals"
 import { notifications } from "@mantine/notifications"
 import { IconPlus, IconArrowsTransferDown, IconArrowLeft, IconMapPin, IconCheck, IconX, IconTrash } from "@tabler/icons-react"
 
-import { locations as locationsApi, categories as categoriesApi, prices as pricesApi } from "../../api/client"
+import { locations as locationsApi, categories as categoriesApi, prices as pricesApi, ApiError } from "../../api/client"
 import type { Location, ExpenseCategory, PriceEntry } from "../../api/client"
 import { SortableCategoryItem, type CategoryPriceInfo } from "./SortableCategoryItem"
 import { CategoryDraftRow, type DraftData } from "./CategoryDraftRow"
@@ -50,6 +50,12 @@ import classes from "../LocationCard.module.css"
 function parseFinite(v: number | string): number | undefined {
   const n = typeof v === "number" ? v : Number(v)
   return Number.isFinite(n) ? n : undefined
+}
+
+function errorMsg(e: unknown, fallback: string): string {
+  if (e instanceof ApiError && e.body?.message) return e.body.message
+  if (e instanceof Error) return e.message
+  return fallback
 }
 
 type ActiveDraft =
@@ -178,6 +184,7 @@ export function CategoriesTab() {
           load()
         } catch (e) {
           console.error("Failed to delete category:", e)
+          notifications.show({ title: "Error", message: errorMsg(e, "Failed to delete category"), color: "red", icon: <IconX size={16} /> })
         }
       },
     })
@@ -236,6 +243,7 @@ export function CategoriesTab() {
       setItems(fresh)
     } catch (e) {
       console.error("Move failed:", e)
+      notifications.show({ title: "Error", message: errorMsg(e, "Failed to move category"), color: "red", icon: <IconX size={16} /> })
       load()
     } finally {
       setReordering(false)
@@ -297,7 +305,7 @@ export function CategoriesTab() {
       setAllPrices((prev) => ({ ...prev, [catId]: updated }))
     } catch (e) {
       console.error("Failed to create price entry:", e)
-      notifications.show({ title: "Error", message: "Failed to create price entry", color: "red", icon: <IconX size={16} /> })
+      notifications.show({ title: "Error", message: errorMsg(e, "Failed to create price entry"), color: "red", icon: <IconX size={16} /> })
     }
   }
 
@@ -315,7 +323,7 @@ export function CategoriesTab() {
           setAllPrices((prev) => ({ ...prev, [entry.expenseCategoryId]: updated }))
         } catch (e) {
           console.error("Failed to delete price entry:", e)
-          notifications.show({ title: "Error", message: "Failed to delete price entry", color: "red", icon: <IconX size={16} /> })
+          notifications.show({ title: "Error", message: errorMsg(e, "Failed to delete price entry"), color: "red", icon: <IconX size={16} /> })
         }
       },
     })
@@ -395,6 +403,7 @@ export function CategoriesTab() {
       setItems(fresh)
     } catch (e) {
       console.error("Reorder failed:", e)
+      notifications.show({ title: "Error", message: errorMsg(e, "Failed to reorder categories"), color: "red", icon: <IconX size={16} /> })
       load()
     } finally {
       setReordering(false)

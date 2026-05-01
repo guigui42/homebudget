@@ -15,6 +15,16 @@ export class ValidationError extends Schema.TaggedError<ValidationError>("Valida
   { message: Schema.String },
 ) {}
 
+export class InternalError extends Schema.TaggedError<InternalError>("InternalError")(
+  "InternalError",
+  { message: Schema.String },
+) {}
+
+export class ExternalServiceError extends Schema.TaggedError<ExternalServiceError>("ExternalServiceError")(
+  "ExternalServiceError",
+  { message: Schema.String },
+) {}
+
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------

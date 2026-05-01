@@ -135,6 +135,7 @@ const ExchangeRatesApi = HttpApiGroup.make("exchangeRates")
   .add(
     HttpApiEndpoint.post("fetch", "/api/exchange-rates/fetch")
       .addSuccess(S.ExchangeRateEntry)
+      .addError(S.ExternalServiceError, { status: 502 })
   )
   .add(
     HttpApiEndpoint.del("remove", "/api/exchange-rates/:id")
@@ -193,6 +194,7 @@ const EvolutionApi = HttpApiGroup.make("evolution")
 // ---------------------------------------------------------------------------
 
 export const HomeBudgetApi = HttpApi.make("homebudget")
+  .addError(S.InternalError, { status: 500 })
   .add(LocationsApi)
   .add(CategoriesApi)
   .add(SalaryApi)
